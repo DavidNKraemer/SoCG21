@@ -20,7 +20,7 @@
   * **Clever** application of dictionaries!
 
 ### "Global" representation
-
+* A global representation is perhaps intractable. The official posting states, explicitly, that there is *no* boundary within which movements must occur. That is, the "horizon" is unbounded. What then is the "full board?" Yes, we could compute a bounding box, perhaps with some padding. However, this seems very quick-and-dirty...
 
 
 ## Game Board representation
