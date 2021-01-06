@@ -1,9 +1,52 @@
-MOVES = dict()
-MOVES["N"] = np.array([0, 1])
-MOVES["S"] = np.array([0, -1])
-MOVES["E"] = np.array([1, 0])
-MOVES["W"] = np.array([-1, 0])
-MOVES[""] = np.array([0, 0])
+import numpy as np
+from collections import defaultdict
+from itertools import product
+import heapq
+
+MOVES = {
+    "E": {
+        'dir': np.array([1, 0]),
+        'out': np.array([[-1,-1], [-1,0], [-1,1]]),
+        'in': np.array([[1,-1], [1,0], [1,1]]),
+    },
+    "W" : {
+        'dir': np.array([-1, 0]),
+        'out': np.array([[1,-1], [1,0], [1,1]]),
+        'in': np.array([[-1,-1], [-1,0], [-1,1]]),
+    },
+    "N" : {
+        'dir': np.array([0, 1]),
+        'out': np.array([[-1,-1],[0,-1],[1,-1]]),
+        'in': np.array([[-1,1],[0,1],[1,1]]),
+    },
+    "S" : {
+        'dir': np.array([0, -1]),
+        'out': np.array([[-1,1],[0,1],[1,1]]),
+        'in': np.array([[-1,-1],[0,-1],[1,-1]]),
+    },
+    "": {
+        'dir': np.array([0, 0]),
+        'out': [],
+        'in': [],
+    }
+}
+
+class DumbPolicy:
+    """
+    Do not use, just for demo
+    """
+
+    def __init__(self, board):
+        self.board = board
+
+    def __call__(self, agent):
+        horiz, vert = agent.target - agent.position
+        if horiz != 0:
+            return 'E' if horiz > 0 else 'W'
+        elif vert != 0:
+            return 'N' if vert > 0 else 'S'
+        else:
+            return ''
 
 
 class Agent:
@@ -15,31 +58,62 @@ class Agent:
         -target: target coordinate pair;
         -neighborhood: representation of the surrounding 8 pixels.
     """
-    def __init__(self, start, target):
+    def __init__(self, start, target, board):
         """
         Construct an Agent object.
         """
         self.position = start  # length two numpy array
         self.target = target  # length two numpy array
-        self.board = None
+        self.board = board 
+
+    def attarget(self):
+        return np.all(self.position == self.target)
 
     def move(self, direction):
         """
         Move self to new_position, a length-two list denoting x,y coordinates.
         """
-        self.position += MOVES[direction]
-        self.broadcast(board, self.position)
-        
-        new_neighbors = board.relevant_pixels(self.position)  # set of Agents
-        for neighbor in new_neighbors:
-            for value in MOVES.values():
-                coord_pair = self.position + value
-                
-                neighbor.position
+        move = MOVES[direction]['dir']
 
-    def link(self, board):
-        self.board = board
-        return self
+        # find all of the pixels *leaving* the neighborhood
+        old_axis = [self.position + x for x in MOVES[direction]['out']]
+
+        # find all of the pixels *entering* the neighborhood
+        new_axis = [self.position + x for x in MOVES[direction]['in']]
+        
+        # move the agent's position
+        self.position += move
+
+        for pixel in old_axis:
+            # remove pixels no longer in the neighborhood
+            print(self.board.relevant_pixels[tuple(pixel)])
+            self.board.relevant_pixels[tuple(pixel)].remove(self)
+        for pixel in new_axis:
+            # add pixels now in the neighborhood
+            self.board.relevant_pixels[tuple(pixel)].add(self)
+
+    def neighborhood(self, dist):
+        """
+        Returns a generator of the neighborhood of all pixels of the agent of
+        distance <= dist
+        """
+        for x, y in product(np.arange(-dist, dist+1), repeat=2):
+            yield self.position + np.array([x,y])
+
+    def priority(self):
+        """
+        Priority value of the agent
+        """
+        return np.linalg.norm(self.target - self.position, ord=1)
+
+    def __lt__(self, other):
+        return self.priority() > other.priority()
+
+    def __repr__(self):
+        """
+        Debug friendly info
+        """
+        return f"Agent({self.position}, {self.target}, {self.priority()})"
 
 
 class DistributedBoard:
@@ -57,37 +131,28 @@ class DistributedBoard:
         """
         Construct a DistributedState object.
         """
-        self.agents = [Agent(start, target).link(self) for start, target in \
+        self.agents = [Agent(start, target, self) for start, target in \
                        zip(starts, targets)]
         self.obstacles = obstacles  # Set of length-two numpy arrays
+        self.queue = []
 
         # init a dict: length-two numpy arrays -> lists of Agents
-        self.relevant_pixels = dict()
+        self.relevant_pixels = defaultdict(set)
         # values are pointers to Agent objects
-        for agent in agents:
-            self.relevant_pixels[agent.position].append(agent)
-            for pixel in agent.neighborhood:
-                self.relevant_pixels[pixel].append(agent)
+        for agent in self.agents:
+            heapq.heappush(self.queue, agent)
+            for pixel in agent.neighborhood(1):  # change for bigger nbds
+                self.relevant_pixels[tuple(pixel)].add(agent)
 
-    def isempty(self, pixel):
-        """
-        Decide if the passed pixel is empty, returning True if and only if it
-        is neither in self.obstacles or in self.relevant_pixels.
-        """
-        if (pixel not in self.obstacles) and (pixel not in
-                                              self.relevant_pixels):
-            return True
-        else:
-            return False
+    def pop(self):
+        agent = heapq.heappop(self.queue)
+        return agent
 
-    def step(self, agent, new_position):
+    def insert(self, agent):
+        heapq.heappush(self.queue, agent)
+
+    def isdone(self):
         """
-        Move exactly one Agent.
+        Returns whether all agents have found their target
         """
-        assert new_position not in self.obstacles, "Obstacle in the way!"
-        # need only update agent's local data
-        if self.isempty(new_position):
-            agent.move(new_position)
-        # must update other agents' local data too
-        else:
-            affected_agents = self.relevant_pixels[new_position]
+        return all(agent.attarget() for agent in self.agents)
