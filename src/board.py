@@ -1,3 +1,11 @@
+MOVES = dict()
+MOVES["N"] = np.array([0, 1])
+MOVES["S"] = np.array([0, -1])
+MOVES["E"] = np.array([1, 0])
+MOVES["W"] = np.array([-1, 0])
+MOVES[""] = np.array([0, 0])
+
+
 class Agent:
     """
     A pixel-robot aware of only its own local data, not those of its peers.
@@ -13,31 +21,28 @@ class Agent:
         """
         self.position = start  # length two numpy array
         self.target = target  # length two numpy array
-        self.neighborhood = list()
+        self.board = None
 
-    def move(self, new_position):
+    def move(self, direction):
         """
         Move self to new_position, a length-two list denoting x,y coordinates.
         """
-        # Can someone please tell me how one writes a Pythonic, multi-line
-        # error message? Is triple-quoting the best way to do it? See the
-        # error messages following the commas in the assert statements.
+        self.position += MOVES[direction]
+        self.broadcast(board, self.position)
+        
+        new_neighbors = board.relevant_pixels(self.position)  # set of Agents
+        for neighbor in new_neighbors:
+            for value in MOVES.values():
+                coord_pair = self.position + value
+                
+                neighbor.position
 
-        assert new_position != self.position, "Oops; the Agent did not move!"
-        assert abs(self.position[0]-self.new_position[0]) <= 1, """Tried to
-        move too far horizontally."""
-        assert abs(self.position[1]-self.new_position[1]) <= 1, """Tried to
-        move too far vertically."""
-        assert not(abs(self.position[0]-self.new_position[0]) == 1 and (
-        abs(self.position[1]-self.new_position[1]) == 1)), """Can't move
-        diagonally."""
-
-        # update position; observe that neighborhood hasn't been updated...
-        # neighborhood updates are handled by DistributedState
-        self.position = new_position
+    def link(self, board):
+        self.board = board
+        return self
 
 
-class DistributedState:
+class DistributedBoard:
     """
     A distributed state-representation comprised of Agents and some auxilliary,
     global bookeeping.
@@ -48,11 +53,12 @@ class DistributedState:
         -relevant_pixels: a dict: pixels -> Agents. These are pixels either
          occupied by agents or those within agents' local neighborhoods.
     """
-    def __init__(self, agents, obstacles):
+    def __init__(self, starts, targets, obstacles):
         """
         Construct a DistributedState object.
         """
-        self.agents = agents  # Set of Agents
+        self.agents = [Agent(start, target).link(self) for start, target in \
+                       zip(starts, targets)]
         self.obstacles = obstacles  # Set of length-two numpy arrays
 
         # init a dict: length-two numpy arrays -> lists of Agents
