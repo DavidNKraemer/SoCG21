@@ -11,13 +11,13 @@ MOVES = {
     },
     "W" : {
         'dir': np.array([-1, 0]),
-        'out': np.array([[1,-1], [1,0], [1,1]]),
-        'in': np.array([[-1,-1], [-1,0], [-1,1]]),
+        'out': np.array([[1,1], [1,0], [1,-1]]),
+        'in': np.array([[-1,1], [-1,0], [-1,-1]]),
     },
     "N" : {
         'dir': np.array([0, 1]),
         'out': np.array([[-1,-1],[0,-1],[1,-1]]),
-        'in': np.array([[-1,1],[0,1],[1,1]]),
+        'in': np.array([[1,1],[0,1],[-1,1]]),
     },
     "S" : {
         'dir': np.array([0, -1]),
@@ -64,7 +64,12 @@ class Agent:
         """
         self.position = start  # length two numpy array
         self.target = target  # length two numpy array
-        self.board = board 
+        self.board = board
+        self._local_state = LocalState(self)
+
+    @property
+    def state(self):
+        return self._local_state.state
 
     def attarget(self):
         return np.all(self.position == self.target)
@@ -73,21 +78,19 @@ class Agent:
         """
         Move self to new_position, a length-two list denoting x,y coordinates.
         """
-        move = MOVES[direction]['dir']
-
         # find all of the pixels *leaving* the neighborhood
-        old_axis = [self.position + x for x in MOVES[direction]['out']]
+        old_axis = self.position + MOVES[direction]['out']
 
-        # find all of the pixels *entering* the neighborhood
-        new_axis = [self.position + x for x in MOVES[direction]['in']]
-        
         # move the agent's position
-        self.position += move
+        self.position += MOVES[direction]['dir']
+
+        new_axis = self.position + MOVES[direction]['in']
 
         for pixel in old_axis:
             # remove pixels no longer in the neighborhood
-            print(self.board.relevant_pixels[tuple(pixel)])
             self.board.relevant_pixels[tuple(pixel)].remove(self)
+            if not self.board.relevant_pixels[tuple(pixel)]:
+                del self.board.relevant_pixels[tuple(pixel)]
         for pixel in new_axis:
             # add pixels now in the neighborhood
             self.board.relevant_pixels[tuple(pixel)].add(self)
@@ -136,7 +139,7 @@ class DistributedBoard:
         self.obstacles = obstacles  # Set of length-two numpy arrays
         self.queue = []
 
-        # init a dict: length-two numpy arrays -> lists of Agents
+        # init a dict: length-two numpy arrays -> sets of Agents
         self.relevant_pixels = defaultdict(set)
         # values are pointers to Agent objects
         for agent in self.agents:
@@ -156,3 +159,40 @@ class DistributedBoard:
         Returns whether all agents have found their target
         """
         return all(agent.attarget() for agent in self.agents)
+
+class LocalState:
+    """
+    Local state information for one Agent.
+    """
+    def __init__(self, agent):
+        self.agent = agent
+
+    @property
+    def state(self):
+        """
+        Encode current position, target position, and neighborhood.
+        """
+        neighborhood = np.zeros((9, 2))
+        # update neighborhood
+        # might need to update the below -- perhaps attach to Agent.move()?
+        agent_positions = defaultdict(int)
+        for agent in self.agent.board.agents:
+            agent_positions[tuple(agent.position)] += 1
+
+        for index, pixel in enumerate(self.agent.neighborhood(1)):
+            neighborhood[index, 0] = agent_positions[tuple(pixel)]
+            neighborhood[index, 1] = int(pixel in self.agent.board.obstacles)
+
+        return np.r_[self.agent.position, self.agent.target,
+                     neighborhood.reshape(-1)]
+
+
+
+
+
+
+
+
+
+
+
