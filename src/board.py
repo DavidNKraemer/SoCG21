@@ -61,17 +61,53 @@ class Agent:
     def __init__(self, start, target, board):
         """
         Construct an Agent object.
+        
+        Params
+        ------
+        start: numpy ndarray
+            agent's starting position
+        target: numpy ndarray
+            agent's targett position
+        board: Board
+            game board object on which agent resides
+
+        Preconditions
+        -------------
+        start.shape == target.shape == (2,)
         """
         self.position = start  # length two numpy array
         self.target = target  # length two numpy array
         self.board = board 
 
     def attarget(self):
+        """
+        Returns whether the agent is in its target position
+
+        Returns
+        -------
+        True iff the current position equals the target position
+        """
         return np.all(self.position == self.target)
 
     def move(self, direction):
         """
-        Move self to new_position, a length-two list denoting x,y coordinates.
+        "Move" the agent according to the specified direction. After calling
+        this method, the following will have been updated:
+            * the agent's position will be in the adjacent tile corresponding to
+              the direction
+            * the agent will have "exited" from the tiles opposite of the
+              direcction of movement
+            * the agent will have "entered" the tiles along the direction of
+              movement
+
+        Params
+        ------
+        direction: str
+            movement direction
+            
+        Preconditions
+        -------------
+        direction in {'up', 'down', 'left', 'right'}
         """
         move = MOVES[direction]['dir']
 
