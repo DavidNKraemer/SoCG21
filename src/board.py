@@ -3,6 +3,7 @@ from collections import defaultdict
 from itertools import product
 import heapq
 
+
 MOVES = {
     "E": {
         'dir': np.array([1, 0]),
@@ -31,6 +32,7 @@ MOVES = {
     }
 }
 
+
 class DumbPolicy:
     """
     Do not use, just for demo
@@ -54,6 +56,9 @@ class DumbPolicy:
         """
         Given an agent, determine a move
 
+        Move horizontally until no longer needed. Then move vertically until
+        arrived at the target
+
         Params
         ------
         agent: Agent
@@ -67,11 +72,18 @@ class DumbPolicy:
         --------------
         move in {'E', 'W', 'N', 'S', ''}
         """
+        # compute displacements
         horiz, vert = agent.target - agent.position
+
+        # horizontal displacement
         if horiz != 0:
             return 'E' if horiz > 0 else 'W'
+
+        # vertical displacement
         elif vert != 0:
             return 'N' if vert > 0 else 'S'
+
+        # if no displacement, just stay put
         else:
             return ''
 
