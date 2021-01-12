@@ -78,10 +78,20 @@ class Agent:
         self.position = start  # length two numpy array
         self.target = target  # length two numpy array
         self.board = board
-        self._local_state = LocalState(self)
+        self._local_state = LocalState(self)  # state representer class
+        self.local_clock = 0  # local clock
 
     @property
     def state(self):
+        """
+        The agent communicates its "state" through its state representation
+        class
+
+        Returns
+        -------
+        state_data: numpy ndarray
+            numpy-friendly state data aggregator
+        """
         return self._local_state.state
 
     def attarget(self):
@@ -124,35 +134,74 @@ class Agent:
 
         for pixel in old_axis:
             # remove pixels no longer in the neighborhood
-            self.board.relevant_pixels[tuple(pixel)].remove(self)
-            if not self.board.relevant_pixels[tuple(pixel)]:
-                del self.board.relevant_pixels[tuple(pixel)]
+            self.board.active_pixels[tuple(pixel)].remove(self)
+            if not self.board.active_pixels[tuple(pixel)]:
+                del self.board.active_pixels[tuple(pixel)]
         for pixel in new_axis:
             # add pixels now in the neighborhood
-            self.board.relevant_pixels[tuple(pixel)].add(self)
+            self.board.active_pixels[tuple(pixel)].add(self)
+
+        # update the local clock
+        self.local_clock += 1
 
     def neighborhood(self, dist):
         """
-        Returns a generator of the neighborhood of all pixels of the agent of
-        distance <= dist
+        Returns a generator of the L_infinity ball of radius `dist`
+
+        Params
+        ------
+        dist: int
+            radius (discrete)
+
+        Returns
+        -------
+        pixels: generator
+            all pixels with L_infinity distance at most `dist`
         """
         for x, y in product(np.arange(-dist, dist+1), repeat=2):
             yield self.position + np.array([x,y])
 
     def priority(self):
         """
-        Priority value of the agent
+        Priority value of the agent to be evaluated in the movement queue in the
+        board
+
+        TODO: make a better priority function, possibly give it over to a
+        learner?
+
+        Returns
+        -------
+        priority_val: float
+            higher is gooder
         """
         return np.linalg.norm(self.target - self.position, ord=1)
 
     def __lt__(self, other):
+        """
+        Compares agents for ordering in the priority queue.
+
+        Params
+        ------
+        other: Agent
+            to be compared against
+
+        Returns
+        -------
+        True iff self has higher priority than other
+        """
         return self.priority() > other.priority()
+
+    def __str__(self):
+        """
+        Print-friendly description string
+        """
+        return f"Agent({self.position}, {self.target}, {self.priority()})"
 
     def __repr__(self):
         """
-        Debug friendly info
+        Debug-friendly info
         """
-        return f"Agent({self.position}, {self.target}, {self.priority()})"
+        return f"Agent<{id(self)}>(Board<{id(self.board)}>)"
 
 
 class DistributedBoard:
@@ -163,36 +212,67 @@ class DistributedBoard:
     Fields:
         -agents: a set of Agents;
         -obstacles: a set of pixels that are blocked-off and can't be used;
-        -relevant_pixels: a dict: pixels -> Agents. These are pixels either
+        -active_pixels: a dict: pixels -> Agents. These are pixels either
          occupied by agents or those within agents' local neighborhoods.
     """
     def __init__(self, starts, targets, obstacles):
         """
         Construct a DistributedState object.
         """
-        self.agents = [Agent(start, target, self) for start, target in \
-                       zip(starts, targets)]
+        self.agents = [Agent(s, t, self) for s, t in zip(starts, targets)]
         self.obstacles = obstacles  # Set of length-two numpy arrays
         self.queue = []
+        self.clock = 0
 
         # init a dict: length-two numpy arrays -> sets of Agents
-        self.relevant_pixels = defaultdict(set)
+        self.active_pixels = defaultdict(set)
+
         # values are pointers to Agent objects
         for agent in self.agents:
-            heapq.heappush(self.queue, agent)
+            # activate pixels
             for pixel in agent.neighborhood(1):  # change for bigger nbds
-                self.relevant_pixels[tuple(pixel)].add(agent)
+                self.active_pixels[tuple(pixel)].add(agent)
+
+            # populate the queue
+            self.insert(agent)
 
     def pop(self):
+        """
+        Pops the next agent from the queue and returns it. During processing, we
+        also manage the board's local clock.
+
+        See https://github.com/DavidNKraemer/SoCG21/issues/3#issue-784378247 for
+        details of this implementation.
+        
+        Returns
+        -------
+        next_agent: Agent
+            the agent with the highest priority
+        """
         agent = heapq.heappop(self.queue)
+        self.clock = max(self.clock, agent.local_clock)
+        agent.local_clock = self.clock
+
         return agent
 
     def insert(self, agent):
+        """
+        Inserts an agent from the queue and returns it
+        
+        Params
+        -------
+        agent: Agent
+            the agent to be inserted into the queue
+        """
         heapq.heappush(self.queue, agent)
 
     def isdone(self):
         """
         Returns whether all agents have found their target
+
+        Returns
+        -------
+        True iff every agent is at its target position
         """
         return all(agent.attarget() for agent in self.agents)
 
@@ -221,14 +301,4 @@ class LocalState:
 
         return np.r_[self.agent.position, self.agent.target,
                      neighborhood.reshape(-1)]
-
-
-
-
-
-
-
-
-
-
 
