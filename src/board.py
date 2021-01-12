@@ -34,12 +34,39 @@ MOVES = {
 class DumbPolicy:
     """
     Do not use, just for demo
+    
+    Might suggest a good abstract base class for policies in general
     """
 
     def __init__(self, board):
+        """
+        There's one policy for the entire board, and calling the policy takes a
+        single agent.
+
+        Params
+        ------
+        board: Board
+            The game board under consideration
+        """
         self.board = board
 
     def __call__(self, agent):
+        """
+        Given an agent, determine a move
+
+        Params
+        ------
+        agent: Agent
+            The current agent to direct
+        
+        Returns
+        -------
+        move: str
+        
+        Postconditions
+        --------------
+        move in {'E', 'W', 'N', 'S', ''}
+        """
         horiz, vert = agent.target - agent.position
         if horiz != 0:
             return 'E' if horiz > 0 else 'W'
@@ -122,8 +149,12 @@ class Agent:
             
         Preconditions
         -------------
-        direction in {'up', 'down', 'left', 'right'}
+        direction in {'W', 'E', 'N', 'S', ''}
         """
+        # the following three steps are noncommutative. it has to be that we
+        # remove the old axis before updating the position, before adding the
+        # new axis
+
         # find all of the pixels *leaving* the neighborhood
         old_axis = self.position + MOVES[direction]['out']
 
@@ -276,29 +307,56 @@ class DistributedBoard:
         """
         return all(agent.attarget() for agent in self.agents)
 
+
 class LocalState:
     """
     Local state information for one Agent.
     """
     def __init__(self, agent):
+        """
+        Each object is attached ("privately", no need for external use) to a
+        single agent.
+
+        Return
+        ------
+        agent: Agent
+        """
         self.agent = agent
+        self.board = self.agent.board
 
     @property
     def state(self):
         """
         Encode current position, target position, and neighborhood.
+
+        Current features:
+            * for every tile in the neighborhood of the agent, return the number
+            of agents occupying the tile as well as whether an obstacle is
+            occupying the tile
+            * current location of the agent
+            * target location of the agent
+
+        TODO: make more interesting
+
+        Returns
+        -------
+        encoded_state: nump ndarray
         """
         neighborhood = np.zeros((9, 2))
+
         # update neighborhood
         # might need to update the below -- perhaps attach to Agent.move()?
+        # it probably belongs to either Agent or Board
         agent_positions = defaultdict(int)
-        for agent in self.agent.board.agents:
+        for agent in self.board.agents:
             agent_positions[tuple(agent.position)] += 1
 
+        # search the neighborhood for agents and obstacles
         for index, pixel in enumerate(self.agent.neighborhood(1)):
             neighborhood[index, 0] = agent_positions[tuple(pixel)]
-            neighborhood[index, 1] = int(pixel in self.agent.board.obstacles)
+            neighborhood[index, 1] = int(pixel in self.board.obstacles)
 
-        return np.r_[self.agent.position, self.agent.target,
-                     neighborhood.reshape(-1)]
+        return np.r_[
+            self.agent.position, self.agent.target, neighborhood.reshape(-1)
+        ]
 
