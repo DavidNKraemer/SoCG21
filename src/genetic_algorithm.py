@@ -109,7 +109,7 @@ class DemoGA(GeneticAlgorithm):
 def amxo_co(p1, p2):
     """
     Given parent parameters p1 and p2, compute the crossover parameter x defined
-    by 
+    by
 
     x[i] = alpha[i] * p1[i] + (1. - alpha[i]) * p2[i]
 
@@ -123,7 +123,7 @@ def amxo_co(p1, p2):
 def heuristic_co(p1, p2):
     """
     Given parent parameters p1 and p2, compute the crossover parameter x defined
-    by 
+    by
 
     x[i] = alpha * (p2[i] - p1[i]) + p2[i]
 

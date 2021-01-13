@@ -5,7 +5,7 @@ class CoordinatedMotionGrid:
 
 
 class CoordinatedMotionPlanningGA(self):
-    
+
     def __init__(self):
         pass
 

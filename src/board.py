@@ -36,7 +36,7 @@ MOVES = {
 class DumbPolicy:
     """
     Do not use, just for demo
-    
+
     Might suggest a good abstract base class for policies in general
     """
 
@@ -63,11 +63,11 @@ class DumbPolicy:
         ------
         agent: Agent
             The current agent to direct
-        
+
         Returns
         -------
         move: str
-        
+
         Postconditions
         --------------
         move in {'E', 'W', 'N', 'S', ''}
@@ -100,7 +100,7 @@ class Agent:
     def __init__(self, start, target, board):
         """
         Construct an Agent object.
-        
+
         Params
         ------
         start: numpy ndarray
@@ -158,7 +158,7 @@ class Agent:
         ------
         direction: str
             movement direction
-            
+
         Preconditions
         -------------
         direction in {'W', 'E', 'N', 'S', ''}
@@ -286,7 +286,7 @@ class DistributedBoard:
 
         See https://github.com/DavidNKraemer/SoCG21/issues/3#issue-784378247 for
         details of this implementation.
-        
+
         Returns
         -------
         next_agent: Agent
@@ -301,7 +301,7 @@ class DistributedBoard:
     def insert(self, agent):
         """
         Inserts an agent from the queue and returns it
-        
+
         Params
         -------
         agent: Agent
