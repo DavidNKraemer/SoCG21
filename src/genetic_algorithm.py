@@ -31,7 +31,7 @@ class GeneticAlgorithm(ABC):
         pass
 
     @abstractmethod
-    def crossover(self):
+    def cross(self):
         """
         Performs breeding of the selected parents in the current generation,
         producing the next generation.
@@ -47,6 +47,81 @@ class GeneticAlgorithm(ABC):
         pass
 
 
+class Crossover:
+    __instance = None
+    def __new__(cls, *args):
+        if cls.__instance is None:
+            cls.__instance = object.__new__(cls, *args)
+        return cls.__instance
+
+    @staticmethod
+    def amxo(p1, p2):
+        """
+        Given parent parameters p1 and p2, compute the crossover parameter x defined
+        by 
+    
+        x[i] = alpha[i] * p1[i] + (1. - alpha[i]) * p2[i]
+    
+        where alpha is a uniform random variable of identical shape
+        """
+        assert p1.shape == p2.shape
+    
+        alpha = np.random.rand(*p1.shape)
+        return alpha * p1 + (1. - alpha) * p2
+    
+    @staticmethod
+    def heuristic(p1, p2):
+        """
+        Given parent parameters p1 and p2, compute the crossover parameter x defined
+        by 
+    
+        x[i] = alpha * (p2[i] - p1[i]) + p2[i]
+    
+        where alpha is a uniform random variable in [0,1]
+        """
+        assert p1.shape == p2.shape
+    
+        alpha = np.random.rand()
+        return alpha * (p2 - p1) + p2
+    
+    @staticmethod
+    def laplace(p1, p2, loc=0., scale=1.):
+        assert p1.shape == p2.shape
+    
+        alpha = np.random.rand()
+        beta = loc - (1 if alpha <= 0.5 else 1) * scale * np.log(alpha)
+    
+        x1, x2 = p1 + beta * abs(p1 - p2), p2 + beta * abs(p1 - p2)
+        return x1 if np.random.rand() < 0.5 else x2
+    
+    @staticmethod
+    def blxa(p1, p2, alpha=0.5):
+        assert p1.shape == p2.shape
+    
+        upper = np.maximum(p1, p2)
+        lower = np.minimum(p1, p2)
+        length = upper - lower
+        upper += length * alpha
+        lower -= length * alpha
+    
+        return lower + (upper - lower) * np.random.rand(*p1.shape)
+
+    @staticmethod
+    def pbxa(p1, p2, alpha=0.5):
+        assert p1.shape == p2.shape
+    
+        upper = np.maximum(p1, p2)
+        lower = np.minimum(p1, p2)
+        length = upper - lower
+        upper += length * alpha
+        lower -= length * alpha
+    
+        return lower + (upper - lower) * np.random.rand(*p1.shape)
+
+
+crossover = Crossover()
+
+
 class DemoGA(GeneticAlgorithm):
     """
     Use the GeneticAlgorithm base class to perform a line of best fit.
@@ -57,13 +132,12 @@ class DemoGA(GeneticAlgorithm):
 
         def fitness(self, inputs, outputs):
             """
-            Mean-squared error
+            Total absolute error
             """
             X = np.c_[np.ones(inputs.shape[0]), inputs]
             y = outputs.reshape(-1, len(outputs))
 
             pred = X @ self.weights
-
             error = (np.abs(y - pred)).mean()
 
             return error
@@ -79,92 +153,35 @@ class DemoGA(GeneticAlgorithm):
 
     def initialize(self):
         self.generation = 1
-        self.population = [
-            self.Specie(
-                np.random.randn(self.inputs.shape[1] + 1)
-            ) for _ in range(self.n_population)
-        ]
+        self.population = [self.Specie(
+            np.random.randn(self.inputs.shape[1] + 1)
+        ) for _ in range(self.n_population)]
 
     def evaluate(self):
+        assert self.__getattribute__('population'), "Run initialize first!"
+
         self.population.sort(
             key=lambda specie: specie.fitness(self.inputs, self.outputs)
         )
 
     def select(self):
+        assert self.__getattribute__('population'), "Run evaluate first!"
+
         self.parents = self.population[:self.elitism]
 
-    def crossover(self):
+    def cross(self):
+        assert self.__getattribute__('parents'), "Run select first"
+
         self.population = []
         for _ in range(self.n_population):
             p1, p2 = np.random.choice(self.parents, size=2)
-            weights = amxo_co(p1.weights, p2.weights)
+            weights = crossover.blxa(p1.weights, p2.weights)
             self.population.append(self.Specie(weights))
         self.generation += 1
 
     def mutate(self):
+        assert self.__getattribute__('population'), "Run initialize first!"
+
         for specie in self.population:
             specie.weights += np.random.randn(*specie.weights.shape) / self.generation
 
-
-def amxo_co(p1, p2):
-    """
-    Given parent parameters p1 and p2, compute the crossover parameter x defined
-    by 
-
-    x[i] = alpha[i] * p1[i] + (1. - alpha[i]) * p2[i]
-
-    where alpha is a uniform random variable of identical shape
-    """
-    assert p1.shape == p2.shape
-
-    alpha = np.random.rand(*p1.shape)
-    return alpha * p1 + (1. - alpha) * p2
-
-def heuristic_co(p1, p2):
-    """
-    Given parent parameters p1 and p2, compute the crossover parameter x defined
-    by 
-
-    x[i] = alpha * (p2[i] - p1[i]) + p2[i]
-
-    where alpha is a uniform random variable in [0,1]
-    """
-    assert p1.shape == p2.shape
-
-    alpha = np.random.rand()
-    return alpha * (p2 - p1) + p2
-
-def laplace_co(p1, p2, loc=0., scale=1.):
-    assert p1.shape == p2.shape
-
-    alpha = np.random.rand()
-    beta = loc - (1 if alpha <= 0.5 else 1) * scale * np.log(alpha)
-
-    x1, x2 = p1 + beta * abs(p1 - p2), p2 + beta * abs(p1 - p2)
-    return x1 if np.random.rand() < 0.5 else x2
-
-def blxa_co(p1, p2):
-    assert p1.shape == p2.shape
-
-    upper = np.maximum(p1, p2)
-    lower = np.minimum(p1, p2)
-
-
-
-
-def f(x):
-    return np.c_[np.ones(x.shape[0]), x] @ np.array([1.,2.,3.,4.])
-
-X = np.arange(120).reshape(-1,3)
-y = f(X)
-
-ga = DemoGA(X, y)
-ga.initialize()
-for i in range(100):
-    print(f"Generation {i}")
-    ga.evaluate()
-    ga.select()
-    ga.crossover()
-    ga.mutate()
-ga.evaluate()
-print(ga.population[0])
