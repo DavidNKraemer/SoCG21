@@ -185,3 +185,20 @@ class DemoGA(GeneticAlgorithm):
         for specie in self.population:
             specie.weights += np.random.randn(*specie.weights.shape) / self.generation
 
+
+def f(x):
+    return np.c_[np.ones(x.shape[0]), x] @ np.array([1.,2.,3.,4.])
+
+X = np.arange(120).reshape(-1,3)
+y = f(X)
+
+ga = DemoGA(X, y)
+ga.initialize()
+for i in range(100):
+    print(f"Generation {i}")
+    ga.evaluate()
+    ga.select()
+    ga.crossover()
+    ga.mutate()
+ga.evaluate()
+print(ga.population[0])
