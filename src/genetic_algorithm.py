@@ -17,8 +17,8 @@ class GeneticAlgorithm(ABC):
     @abstractmethod
     def evaluate(self):
         """
-        Evaluates the performance of members of the current generation against a
-        fitness function.
+        Evaluates the performance of members of the current generation against
+        a fitness function.
         """
         pass
 
@@ -57,65 +57,65 @@ class Crossover:
     @staticmethod
     def amxo(p1, p2):
         """
-        Given parent parameters p1 and p2, compute the crossover parameter x defined
-        by 
-    
+        Given parent parameters p1 and p2, compute the crossover parameter x
+        defined by
+
         x[i] = alpha[i] * p1[i] + (1. - alpha[i]) * p2[i]
-    
+
         where alpha is a uniform random variable of identical shape
         """
         assert p1.shape == p2.shape
-    
+
         alpha = np.random.rand(*p1.shape)
         return alpha * p1 + (1. - alpha) * p2
-    
+
     @staticmethod
     def heuristic(p1, p2):
         """
-        Given parent parameters p1 and p2, compute the crossover parameter x defined
-        by 
-    
+        Given parent parameters p1 and p2, compute the crossover parameter x
+        defined by
+
         x[i] = alpha * (p2[i] - p1[i]) + p2[i]
-    
+
         where alpha is a uniform random variable in [0,1]
         """
         assert p1.shape == p2.shape
-    
+
         alpha = np.random.rand()
         return alpha * (p2 - p1) + p2
-    
+
     @staticmethod
     def laplace(p1, p2, loc=0., scale=1.):
         assert p1.shape == p2.shape
-    
+
         alpha = np.random.rand()
         beta = loc - (1 if alpha <= 0.5 else 1) * scale * np.log(alpha)
-    
+
         x1, x2 = p1 + beta * abs(p1 - p2), p2 + beta * abs(p1 - p2)
         return x1 if np.random.rand() < 0.5 else x2
-    
+
     @staticmethod
     def blxa(p1, p2, alpha=0.5):
         assert p1.shape == p2.shape
-    
+
         upper = np.maximum(p1, p2)
         lower = np.minimum(p1, p2)
         length = upper - lower
         upper += length * alpha
         lower -= length * alpha
-    
+
         return lower + (upper - lower) * np.random.rand(*p1.shape)
 
     @staticmethod
     def pbxa(p1, p2, alpha=0.5):
         assert p1.shape == p2.shape
-    
+
         upper = np.maximum(p1, p2)
         lower = np.minimum(p1, p2)
         length = upper - lower
         upper += length * alpha
         lower -= length * alpha
-    
+
         return lower + (upper - lower) * np.random.rand(*p1.shape)
 
 
@@ -183,7 +183,8 @@ class DemoGA(GeneticAlgorithm):
         assert self.__getattribute__('population'), "Run initialize first!"
 
         for specie in self.population:
-            specie.weights += np.random.randn(*specie.weights.shape) / self.generation
+            specie.weights += np.random.randn(*specie.weights.shape) / (
+                self.generation)
 
 
 def f(x):
