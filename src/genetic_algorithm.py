@@ -1,4 +1,4 @@
-import numpy as np
+import torch
 from abc import ABC, abstractmethod
 
 class GeneticAlgorithm(ABC):
@@ -66,7 +66,7 @@ class Crossover:
         """
         assert p1.shape == p2.shape
     
-        alpha = np.random.rand(*p1.shape)
+        alpha = torch.rand(*p1.shape)
         return alpha * p1 + (1. - alpha) * p2
     
     @staticmethod
@@ -81,42 +81,42 @@ class Crossover:
         """
         assert p1.shape == p2.shape
     
-        alpha = np.random.rand()
+        alpha = torch.rand()
         return alpha * (p2 - p1) + p2
     
     @staticmethod
     def laplace(p1, p2, loc=0., scale=1.):
         assert p1.shape == p2.shape
     
-        alpha = np.random.rand()
-        beta = loc - (1 if alpha <= 0.5 else 1) * scale * np.log(alpha)
+        alpha = torch.rand()
+        beta = loc - (1 if alpha <= 0.5 else 1) * scale * torch.log(alpha)
     
-        x1, x2 = p1 + beta * abs(p1 - p2), p2 + beta * abs(p1 - p2)
-        return x1 if np.random.rand() < 0.5 else x2
+        x1, x2 = p1 + beta * torch.abs(p1 - p2), p2 + beta * torch.abs(p1 - p2)
+        return x1 if torch.rand() < 0.5 else x2
     
     @staticmethod
     def blxa(p1, p2, alpha=0.5):
         assert p1.shape == p2.shape
     
-        upper = np.maximum(p1, p2)
-        lower = np.minimum(p1, p2)
+        upper = torch.max(p1, p2)
+        lower = torch.min(p1, p2)
         length = upper - lower
         upper += length * alpha
         lower -= length * alpha
     
-        return lower + (upper - lower) * np.random.rand(*p1.shape)
+        return lower + (upper - lower) * torch.rand(*p1.shape)
 
     @staticmethod
     def pbxa(p1, p2, alpha=0.5):
         assert p1.shape == p2.shape
     
-        upper = np.maximum(p1, p2)
-        lower = np.minimum(p1, p2)
+        upper = torch.max(p1, p2)
+        lower = torch.min(p1, p2)
         length = upper - lower
         upper += length * alpha
         lower -= length * alpha
     
-        return lower + (upper - lower) * np.random.rand(*p1.shape)
+        return lower + (upper - lower) * torch.rand(*p1.shape)
 
 
 crossover = Crossover()
