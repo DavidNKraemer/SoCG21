@@ -36,11 +36,11 @@ class NogradModule:
     >>> model.values[0]
     tensor(0.)
     """
-    
+
     def __init__(self, model):
         """
         Initialize the module with an existing Pytorch module
-        
+
         Params
         ------
         model: nn.Module
@@ -54,13 +54,13 @@ class NogradModule:
         
         # total number of weights in the network
         self.size = sum(reduce(mul, shape) for shape in self.shape)
-        
+
     @property
     def values(self):
         """
         Returns a completely flattened representation of all of the weights of
         each layer of the underlying network.
-        
+
         Returns
         -------
         values: torch.tensor
@@ -73,16 +73,16 @@ class NogradModule:
         """
         Modifies the underlying network by accepting a flattened representation
         of all of the network's weights.
-        
+
         Params
         ------
         new_values: torch.tensor
             Tensor of new values to be set to the network
-            
+
         Preconditions
         -------------
         (verified by the method)
-        
+
         new_values.size() == self.size
         """
         assert new_values.size()[0] == self.size, "Error"
@@ -106,19 +106,19 @@ class NogradModule:
     def __str__(self):
         """
         Currently just returns the __repr__ method, idk I think it's fine.
-        
+
         Returns
         -------
         class_str: str
             User-friendly representation of the model as a string
         """
         return repr(self)
-    
+
     def __repr__(self):
         """
-        Wraps the Nograd class name around the underlying torch Module repr 
+        Wraps the Nograd class name around the underlying torch Module repr
         method, also records the size of the network.
-        
+
         Returns
         -------
         class_repr: str
