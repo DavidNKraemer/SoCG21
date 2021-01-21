@@ -1,5 +1,7 @@
 import torch
 from abc import ABC, abstractmethod
+import random
+from operator import methodcaller
 
 class GeneticAlgorithm(ABC):
     """
@@ -81,18 +83,19 @@ class Crossover:
         """
         assert p1.shape == p2.shape
     
-        alpha = torch.rand()
+        alpha = random.random()
         return alpha * (p2 - p1) + p2
 
     @staticmethod
     def laplace(p1, p2, loc=0., scale=1.):
         assert p1.shape == p2.shape
     
-        alpha = torch.rand()
-        beta = loc - (1 if alpha <= 0.5 else 1) * scale * torch.log(alpha)
+        alpha = torch.rand(1)
+        coeff = 2. * (alpha <= 0.5) - 1.
+        beta = loc - coeff * scale * torch.log(alpha)
     
         x1, x2 = p1 + beta * torch.abs(p1 - p2), p2 + beta * torch.abs(p1 - p2)
-        return x1 if torch.rand() < 0.5 else x2
+        return x1 if random.random() < 0.5 else x2
     
     @staticmethod
     def blxa(p1, p2, alpha=0.5):
@@ -104,7 +107,7 @@ class Crossover:
         upper += length * alpha
         lower -= length * alpha
     
-        return lower + (upper - lower) * torch.rand(*p1.shape)
+        return lower + (upper - lower) * torch.rand(p1.shape)
 
     @staticmethod
     def pbxa(p1, p2, alpha=0.5):
@@ -116,7 +119,7 @@ class Crossover:
         upper += length * alpha
         lower -= length * alpha
     
-        return lower + (upper - lower) * torch.rand(*p1.shape)
+        return lower + (upper - lower) * torch.rand(p1.shape)
 
 
 crossover = Crossover()
@@ -134,72 +137,85 @@ class DemoGA(GeneticAlgorithm):
             """
             Total absolute error
             """
-            X = np.c_[np.ones(inputs.shape[0]), inputs]
+            offset = torch.ones(inputs.shape[0], 1)
+            X = torch.cat((offset, inputs), dim=1)
             y = outputs.reshape(-1, len(outputs))
 
             pred = X @ self.weights
-            error = (np.abs(y - pred)).mean()
+            error = ((torch.abs(y - pred)) ** 2).mean()
 
-            return error
+            return -float(error)
 
         def __repr__(self):
             return str(self.weights)
 
-    def __init__(self, inputs, outputs, n_population=1000):
+    def __init__(self, inputs, outputs, n_population=1000, n_parents=100):
+        """
+        Params
+        ------
+        inputs: torch.tensor
+            Input data
+        outputs: torch.tensor
+            True outputs
+        n_population: int
+            Size of the population in each generation
+        n_parents: int
+            Number of parents to take from the population for crossbreeding
+        """
         self.inputs = inputs
         self.outputs = outputs
         self.n_population = n_population
-        self.elitism = n_population // 10
+        self.n_parents = n_parents
+
+        self.weight_shape = self.inputs.shape[1] + 1
+        self.evaluator = methodcaller('fitness', self.inputs, self.outputs)
 
     def initialize(self):
+        """
+        Starts the first generation with a new population
+        """
         self.generation = 1
-        self.population = [self.Specie(
-            np.random.randn(self.inputs.shape[1] + 1)
-        ) for _ in range(self.n_population)]
+        self.population = [
+            self.Specie(torch.randn(self.weight_shape)) \
+            for _ in range(self.n_population)
+        ]
 
     def evaluate(self):
+        """
+        Sorts the population by fitness scores
+        """
         assert self.__getattribute__('population'), "Run initialize first!"
 
-        self.population.sort(
-            key=lambda specie: specie.fitness(self.inputs, self.outputs)
-        )
+        self.population.sort(key=self.evaluator, reverse=True)
 
     def select(self):
+        """
+        Identifies the parents of the generation by the highest scoring members
+        """
         assert self.__getattribute__('population'), "Run evaluate first!"
 
-        self.parents = self.population[:self.elitism]
+        self.parents = self.population[:self.n_parents]
 
     def cross(self):
+        """
+        By randomly selecting parents to breed, breed a new population from the
+        parents
+        """
         assert self.__getattribute__('parents'), "Run select first"
 
         self.population = []
         for _ in range(self.n_population):
-            p1, p2 = np.random.choice(self.parents, size=2)
-            weights = crossover.blxa(p1.weights, p2.weights)
+            p1, p2 = random.choices(self.parents, k=2)
+            weights = crossover.pbxa(p1.weights, p2.weights)
             self.population.append(self.Specie(weights))
         self.generation += 1
 
     def mutate(self):
+        """
+        Modify the genomes of the current population
+        """
         assert self.__getattribute__('population'), "Run initialize first!"
 
         for specie in self.population:
-            specie.weights += np.random.randn(*specie.weights.shape) / (
-                self.generation)
+            specie.weights += torch.randn(specie.weights.shape)
 
-
-def f(x):
-    return np.c_[np.ones(x.shape[0]), x] @ np.array([1.,2.,3.,4.])
-
-X = np.arange(120).reshape(-1,3)
-y = f(X)
-
-ga = DemoGA(X, y)
-ga.initialize()
-for i in range(100):
-    print(f"Generation {i}")
-    ga.evaluate()
-    ga.select()
-    ga.crossover()
-    ga.mutate()
-ga.evaluate()
-print(ga.population[0])
