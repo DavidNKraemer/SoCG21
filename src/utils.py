@@ -47,11 +47,10 @@ class NogradModule:
             underlying Pytorch network
         """
         self.model = model
+        self.parameters = self.model.parameters
         
         # tuple of shapes of every parameter layer of the network
-        self.shape = tuple(
-            values.shape for values in self.model.state_dict().values()
-        )
+        self.shape = tuple(p.shape for p in self.parameters())
         
         # total number of weights in the network
         self.size = sum(reduce(mul, shape) for shape in self.shape)
@@ -67,9 +66,7 @@ class NogradModule:
         values: torch.tensor
             Flattened representation of the underlying network
         """
-        return torch.cat([
-            v.reshape(-1) for v in self.model.state_dict().values()
-        ])
+        return torch.cat([p.data.reshape(-1) for p in self.parameters()])
     
     @values.setter
     def values(self, new_values):
@@ -90,25 +87,22 @@ class NogradModule:
         """
         assert new_values.size()[0] == self.size, "Error"
         
-        new_dict = {}  # to update the state_dict
         index = 0     
         
-        # loop through every layer of the model
-        for key, shape in zip(self.model.state_dict().keys(), self.shape):
-            # size of the current layer
-            block_size = reduce(mul, shape) 
-            
+        # loop through every layer of parameters in the model
+        for param in self.parameters():
+            # size of the current block
+            size = reduce(mul, param.shape) 
+
             # select the corresponding block in the new_values
-            block = new_values[index:index+block_size][:].reshape(shape)
-            
+            block = new_values[index:index+size].reshape(param.shape)
+
             # push the block to the dictionary
-            new_dict[key] = block
-            
+            param.data.copy_(block)
+
             # move the block forward
-            index += block_size
-            
-        self.model.load_state_dict(new_dict)
-        
+            index += size
+
     def __str__(self):
         """
         Currently just returns the __repr__ method, idk I think it's fine.
