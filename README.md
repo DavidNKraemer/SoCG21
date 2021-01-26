@@ -5,7 +5,7 @@ Stony Brook University operations research graduate students' project for the 37
 [CG:SHOP SoCG21 Competition](https://cgshop.ibr.cs.tu-bs.de/competition/cg-shop-2021/#problem-description)
 
 ### Installation
-To install, simply clone and navigate to the `SoCG21` directory, then do
+To install, simply clone and navigate to the `SoCG21` directory, create your virtual environment of choice, then do
 ```bash
 pip install -e .
 ```
