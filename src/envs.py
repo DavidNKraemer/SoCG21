@@ -104,6 +104,8 @@ class BoardEnv(gym.Env):
         self.board.reset()
         self.state = self.board.peek().state
 
+        return self.state
+
     def render(self):
         """
         If we ever decide to make a visual representation of the game board...
