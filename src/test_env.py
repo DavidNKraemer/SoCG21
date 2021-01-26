@@ -16,10 +16,10 @@ obstacles = []
 env = BoardEnv(sources, targets, obstacles)
 env.reset()
 
-terminated = False
+done = False
 
-while not terminated:
+while not done:
     action = 0
-    state, reward, terminated, _ = env.step(action)
+    state, reward, done, _ = env.step(action)
     print(state)
 
