@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-from board import DistributedBoard
+from board import DistributedBoard, LocalState
 
 
 def board_reward(board):
@@ -47,7 +47,9 @@ class BoardEnv(gym.Env):
         self.board = DistributedBoard(starts, targets, obstacles)
 
         self.action_space = gym.spaces.Discrete(5)
-        self.observation_space = gym.spaces.Box(-np.inf, np.inf, shape=None)
+        self.observation_space = gym.spaces.Box(
+            low=-np.inf, high=np.inf, shape=LocalState.shape
+        )
 
     def step(self, action):
         """

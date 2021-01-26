@@ -343,6 +343,7 @@ class LocalState:
     """
     Local state information for one Agent.
     """
+    shape = (22,)
     def __init__(self, agent):
         """
         Each object is attached ("privately", no need for external use) to a
