@@ -262,8 +262,16 @@ class DistributedBoard:
         """
         Construct a DistributedState object.
         """
-        self.agents = [Agent(s, t, self) for s, t in zip(starts, targets)]
+        self._starts = starts
+        self._targets = targets
         self.obstacles = obstacles  # Set of length-two numpy arrays
+
+    def reset(self):
+        """
+        Resets the DistributedBoard, useful for reusing the same object for gym
+        Environment
+        """
+        self.agents = [Agent(s, t, self) for s, t in zip(self._starts, self._targets)]
         self.queue = []
         self.clock = 0
 
@@ -282,7 +290,7 @@ class DistributedBoard:
     def pop(self):
         """
         Pops the next agent from the queue and returns it. During processing, we
-        also manage the board's local clock.
+        also manage the board's clock and the agent's local clock.
 
         See https://github.com/DavidNKraemer/SoCG21/issues/3#issue-784378247 for
         details of this implementation.
@@ -293,6 +301,17 @@ class DistributedBoard:
             the agent with the highest priority
         """
         agent = heapq.heappop(self.queue)
+        self.clock = max(self.clock, agent.local_clock)
+        agent.local_clock = self.clock
+
+        return agent
+
+    def peek(self):
+        """
+        Returns the next agent from the queue without removing it. During
+        processing, the board's clock and the agent's local clock is updated.
+        """
+        agent = self.queue[0]
         self.clock = max(self.clock, agent.local_clock)
         agent.local_clock = self.clock
 
