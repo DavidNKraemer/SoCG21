@@ -4,7 +4,7 @@ import copy
 import warnings
 
 
-from util import TorchBuffer
+from src.dqn.util import TorchBuffer
 
 
 class DoubleDQNAgent:

@@ -1,6 +1,7 @@
 import gym
 import numpy as np
-from board import DistributedBoard, LocalState
+
+from src.board import DistributedBoard, LocalState
 
 
 def board_reward(board):

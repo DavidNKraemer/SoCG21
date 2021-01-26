@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import random
 from operator import methodcaller
 
+
 class GeneticAlgorithm(ABC):
     """
     Abstract base class for all genetic algorithms.

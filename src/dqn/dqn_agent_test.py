@@ -1,7 +1,7 @@
 import torch
 
 
-import agents, envs, models, util
+from src.dqn import agents, envs, models, util
 
 
 ### hyperparameters

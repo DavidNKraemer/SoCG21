@@ -1,5 +1,7 @@
 import numpy as np
-from board import *
+
+from src.board import *
+
 
 np.random.seed(0)
 
