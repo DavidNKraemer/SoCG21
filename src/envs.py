@@ -94,7 +94,7 @@ class BoardEnv(gym.Env):
         # TODO: do something better
         reward = board_reward(self.board)
 
-        return self.state, reward, done, {}
+        return agent.state, reward, done, {}
 
     def reset(self):
         """
