@@ -2,6 +2,7 @@ import numpy as np
 from collections import defaultdict
 from itertools import product
 import heapq
+from copy import deepcopy
 
 
 MOVES = {
@@ -97,7 +98,7 @@ class Agent:
         -target: target coordinate pair;
         -neighborhood: representation of the surrounding 8 pixels.
     """
-    def __init__(self, start, target, board):
+    def __init__(self, start, target, board, agent_id):
         """
         Construct an Agent object.
 
@@ -119,6 +120,7 @@ class Agent:
         self.board = board
         self._local_state = LocalState(self)  # state representer class
         self.local_clock = 0  # local clock
+        self.agent_id = agent_id
 
     @property
     def state(self):
@@ -266,12 +268,23 @@ class DistributedBoard:
         self._targets = targets
         self.obstacles = obstacles  # Set of length-two numpy arrays
 
+    def _snapshot(self):
+        """
+        Stash current timestep info.
+
+        Allows recovery of local neighborhood of a given agent from
+        the stashed timestep.
+        """
+
+        self.prev_active_pixels = deepcopy(self.active_pixels)
+
     def reset(self):
         """
         Resets the DistributedBoard, useful for reusing the same object for gym
         Environment
         """
-        self.agents = [Agent(s, t, self) for s, t in zip(self._starts, self._targets)]
+        self.agents = [Agent(s, t, self, i) \
+                       for i, (s, t) in enumerate(zip(self._starts, self._targets))]
         self.queue = []
         self.clock = 0
 
@@ -287,6 +300,8 @@ class DistributedBoard:
             # populate the queue
             self.insert(agent)
 
+        self._snapshot()
+
     def pop(self):
         """
         Pops the next agent from the queue and returns it. During processing, we
@@ -300,8 +315,11 @@ class DistributedBoard:
         next_agent: Agent
             the agent with the highest priority
         """
+
         agent = heapq.heappop(self.queue)
-        self.clock = max(self.clock, agent.local_clock)
+        if agent.local_clock > self.clock:
+            self._snapshot()
+            self.clock = agent.local_clock
         agent.local_clock = self.clock
 
         return agent
@@ -312,7 +330,9 @@ class DistributedBoard:
         processing, the board's clock and the agent's local clock is updated.
         """
         agent = self.queue[0]
-        self.clock = max(self.clock, agent.local_clock)
+        if agent.local_clock > self.clock:
+            self._snapshot()
+            self.clock = agent.local_clock
         agent.local_clock = self.clock
 
         return agent
