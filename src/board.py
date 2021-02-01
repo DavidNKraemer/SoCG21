@@ -96,7 +96,7 @@ class Agent:
     Fields:
         -position: current position, a coordinate pair;
         -target: target coordinate pair;
-        -neighborhood: representation of the surrounding 8 pixels.
+        -neighborhood: representation of the surrounding 9 pixels.
     """
     def __init__(self, start, target, board, agent_id):
         """
@@ -134,6 +134,18 @@ class Agent:
             numpy-friendly state data aggregator
         """
         return self._local_state.state
+
+    @property
+    def dist_to_go(self):
+        """
+        Return the l_1 distance between self's current position and that of
+        the target position.
+
+        Note: this method ignores obstacles and other agents that might be in
+        the way! We return only the l_1 distance between two pixels. Nothing
+        fancy is done w.r.t. obstacle avoidance.
+        """
+        return np.linalg.norm(self.target - self.position, ord=1)
 
     def attarget(self):
         """
@@ -217,7 +229,7 @@ class Agent:
         Returns
         -------
         priority_val: float
-            higher is gooder
+            higher iz gooder
         """
         return np.linalg.norm(self.target - self.position, ord=1)
 
@@ -257,12 +269,16 @@ class DistributedBoard:
     Fields:
         -agents: a set of Agents;
         -obstacles: a set of pixels that are blocked-off and can't be used;
-        -active_pixels: a dict: pixels -> Agents. These are pixels either
-         occupied by agents or those within agents' local neighborhoods.
+        -active_pixels: defaultdict: pixels -> Set[Agent]. These are pixels
+         either occupied by agents or those within agents' local neighborhoods;
+        -prev_active_pixels: active_pixels as seen in the previous
+         (board-clock) time-step;
+        -queue: heap used to handle orders in which agents are to move;
+        -clock: time-step counter.
     """
     def __init__(self, starts, targets, obstacles):
         """
-        Construct a DistributedState object.
+        Construct a DistributedBoard object.
         """
         self._starts = starts
         self._targets = targets
@@ -275,7 +291,6 @@ class DistributedBoard:
         Allows recovery of local neighborhood of a given agent from
         the stashed timestep.
         """
-
         self.prev_active_pixels = deepcopy(self.active_pixels)
 
     def reset(self):
@@ -315,7 +330,6 @@ class DistributedBoard:
         next_agent: Agent
             the agent with the highest priority
         """
-
         agent = heapq.heappop(self.queue)
         if agent.local_clock > self.clock:
             self._snapshot()
