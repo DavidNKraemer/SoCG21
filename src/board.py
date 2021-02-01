@@ -358,9 +358,8 @@ class DistributedBoard:
             the agent with the highest priority
         """
         agent = heapq.heappop(self.queue)
-        if agent.local_clock > self.clock:
-            self._snapshot()
-            self.clock = agent.local_clock
+        self._snapshot()
+        self.clock = max(agent.local_clock, self.clock)
         agent.local_clock = self.clock
 
         return agent
@@ -371,9 +370,8 @@ class DistributedBoard:
         processing, the board's clock and the agent's local clock is updated.
         """
         agent = self.queue[0]
-        if agent.local_clock > self.clock:
-            self._snapshot()
-            self.clock = agent.local_clock
+        self._snapshot()
+        self.clock = max(agent.local_clock, self.clock)
         agent.local_clock = self.clock
 
         return agent

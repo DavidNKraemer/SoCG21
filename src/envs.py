@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+from operator import attrgetter
 
 from src.board import DistributedBoard, LocalState
 
@@ -16,10 +17,7 @@ def obstacles_hit(agent):
     """
     # obstacles don't move. Collision occurred in previous time-step iff
     # agent's position in present time-step is an obstacle pixel.
-    if agent.position in agent.board.obstacles:
-        return 1
-    else:
-        return 0
+    return int(agent.position in agent.board.obstacles)
 
 def agents_hit(agent):
     """
@@ -33,20 +31,23 @@ def agents_hit(agent):
     W = np.array([-1, 0])
     E = np.array([1, 0])
 
-    n_collisions = 0
+    agent_id = attrgetter("agent_id")
+    n_collisions = len(agent.board.active_pixels[tuple(agent.position)]) - 1
     for direction in [N, S, W, E]:
         # the set of agents in the pixel to the e.g., North of the agent;
         # store set of agents in this pixel at previous time-step
         prev_agents = agent.board.prev_active_pixels[
-            tuple(agent.position + direction)]
+            tuple(agent.prev_position + direction)]
+        prev_ids = set(map(agent_id, prev_agents))
         for other_direction in [N, S, W, E]:
             # check all other cardinal directions at the current time-step
             if other_direction is not direction:
                 # store set of agents in this pixel at current time-step
                 curr_agents = agent.board.active_pixels[
                     tuple(agent.position + other_direction)]
+                curr_ids = set(map(agent_id, curr_agents))
                 # take intersection of two sets, and increment by cardinality
-                n_collisions += len(curr_agents & prev_agents)
+                n_collisions += len(curr_ids & prev_ids)
 
     return n_collisions
 
@@ -176,7 +177,7 @@ class BoardEnv(gym.Env):
         done = self.board.isdone()
 
         # TODO: do something better
-        reward = board_reward(self.board)
+        reward = self.reward_fn(agent)
 
         return agent.state, reward, done, {}
 
