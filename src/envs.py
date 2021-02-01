@@ -114,7 +114,7 @@ def board_reward(board, alpha, beta, gamma):
 
 class BoardEnv(gym.Env):
 
-    def __init__(self, starts, targets, obstacles):
+    def __init__(self, starts, targets, obstacles, reward_fn):
         """
         Params
         ------
@@ -136,6 +136,7 @@ class BoardEnv(gym.Env):
         self.observation_space = gym.spaces.Box(
             low=-np.inf, high=np.inf, shape=LocalState.shape
         )
+        self.reward_fn = reward_fn
 
     def step(self, action):
         """
