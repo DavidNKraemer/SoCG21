@@ -6,32 +6,59 @@ from copy import deepcopy
 
 
 MOVES = {
-    "E": {
-        'dir': np.array([1, 0]),
-        'out': np.array([[-1,-1], [-1,0], [-1,1]]),
-        'in': np.array([[1,-1], [1,0], [1,1]]),
-    },
-    "W" : {
-        'dir': np.array([-1, 0]),
-        'out': np.array([[1,1], [1,0], [1,-1]]),
-        'in': np.array([[-1,1], [-1,0], [-1,-1]]),
-    },
-    "N" : {
-        'dir': np.array([0, 1]),
-        'out': np.array([[-1,-1],[0,-1],[1,-1]]),
-        'in': np.array([[1,1],[0,1],[-1,1]]),
-    },
-    "S" : {
-        'dir': np.array([0, -1]),
-        'out': np.array([[-1,1],[0,1],[1,1]]),
-        'in': np.array([[-1,-1],[0,-1],[1,-1]]),
-    },
-    "": {
-        'dir': np.array([0, 0]),
-        'out': [],
-        'in': [],
-    }
+    "E": np.array([ 1,  0]),
+    "W": np.array([-1,  0]),
+    "N": np.array([ 0,  1]),
+    "S": np.array([ 0, -1]),
+    "":  np.array([ 0,  0]),
 }
+
+
+def get_pixels(direction, radius):
+    """
+    Given a specified direction and radius, return every pixel in the L infinity
+    neighborhood of (0,0) of the given radius along the given direction.
+
+    So for example, if the direction is [1,0] (east), the pixels returned are
+    all of the pixels to the right of (0,0).
+
+    Params
+    ------
+    direction: numpy ndarray
+        One of the four cardinal directions, or the zero vector (for no
+        movement)
+    radius: int
+        Radius of the neighborhood to compute
+
+    Returns
+    -------
+    pixels: numpy ndarray
+        Every pixel along the given direction in the L infinity neighborhood  of
+        (0,0) within the given radius.
+
+    Preconditions
+    -------------
+    direction in {[1,0], [-1,0], [0,1], [0,-1], [0,0]}
+    radius > 0
+
+    Postconditions
+    --------------
+    If direction == [0, 0], an empty array is returned.
+    Otherwise, pixels.shape[1] == 2
+
+    """
+    if np.all(direction == 0):
+        return np.array([[]])
+
+    pixels = []
+    parallel = (direction != 0).astype(np.int)
+    sign = int(direction[parallel == 1])
+    orthogonal = (direction == 0).astype(np.int)
+    for i in range(1, radius+1):
+        for j in range(-radius, radius+1):
+            pixels.append(list(sign * i * parallel + j * orthogonal))
+
+    return np.array(pixels)
 
 
 class DumbPolicy:
@@ -182,12 +209,12 @@ class Agent:
         # new axis
 
         # find all of the pixels *leaving* the neighborhood
-        old_axis = self.position + MOVES[direction]['out']
+        old_axis = self.position + get_pixels(-MOVES[direction], 1)
 
         # move the agent's position
-        self.position += MOVES[direction]['dir']
+        self.position += MOVES[direction]
 
-        new_axis = self.position + MOVES[direction]['in']
+        new_axis = self.position + get_pixels(MOVES[direction], 1)
 
         for pixel in old_axis:
             # remove pixels no longer in the neighborhood
