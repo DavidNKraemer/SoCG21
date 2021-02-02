@@ -148,6 +148,7 @@ class Agent:
         self._local_state = LocalState(self)  # state representer class
         self.local_clock = 0  # local clock
         self.agent_id = agent_id
+        self.prev_position = self.position  # initialize; update with move()
 
     @property
     def state(self):
@@ -211,6 +212,8 @@ class Agent:
         # find all of the pixels *leaving* the neighborhood
         old_axis = self.position + get_pixels(-MOVES[direction], 1)
 
+        # update previous position (needed for agents_hit() in env.py)
+        self.prev_position = self.position
         # move the agent's position
         self.position += MOVES[direction]
 
