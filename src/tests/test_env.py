@@ -1,7 +1,8 @@
 import gym
 import numpy as np
 
-from envs import BoardEnv
+from src.envs import BoardEnv
+
 
 # list of source positions
 sources = np.array([[0,0]])

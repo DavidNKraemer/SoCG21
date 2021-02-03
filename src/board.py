@@ -2,35 +2,63 @@ import numpy as np
 from collections import defaultdict
 from itertools import product
 import heapq
+from copy import deepcopy
 
 
 MOVES = {
-    "E": {
-        'dir': np.array([1, 0]),
-        'out': np.array([[-1,-1], [-1,0], [-1,1]]),
-        'in': np.array([[1,-1], [1,0], [1,1]]),
-    },
-    "W" : {
-        'dir': np.array([-1, 0]),
-        'out': np.array([[1,1], [1,0], [1,-1]]),
-        'in': np.array([[-1,1], [-1,0], [-1,-1]]),
-    },
-    "N" : {
-        'dir': np.array([0, 1]),
-        'out': np.array([[-1,-1],[0,-1],[1,-1]]),
-        'in': np.array([[1,1],[0,1],[-1,1]]),
-    },
-    "S" : {
-        'dir': np.array([0, -1]),
-        'out': np.array([[-1,1],[0,1],[1,1]]),
-        'in': np.array([[-1,-1],[0,-1],[1,-1]]),
-    },
-    "": {
-        'dir': np.array([0, 0]),
-        'out': [],
-        'in': [],
-    }
+    "E": np.array([ 1,  0]),
+    "W": np.array([-1,  0]),
+    "N": np.array([ 0,  1]),
+    "S": np.array([ 0, -1]),
+    "":  np.array([ 0,  0]),
 }
+
+
+def get_pixels(direction, radius):
+    """
+    Given a specified direction and radius, return every pixel in the L infinity
+    neighborhood of (0,0) of the given radius along the given direction.
+
+    So for example, if the direction is [1,0] (east), the pixels returned are
+    all of the pixels to the right of (0,0).
+
+    Params
+    ------
+    direction: numpy ndarray
+        One of the four cardinal directions, or the zero vector (for no
+        movement)
+    radius: int
+        Radius of the neighborhood to compute
+
+    Returns
+    -------
+    pixels: numpy ndarray
+        Every pixel along the given direction in the L infinity neighborhood  of
+        (0,0) within the given radius.
+
+    Preconditions
+    -------------
+    direction in {[1,0], [-1,0], [0,1], [0,-1], [0,0]}
+    radius > 0
+
+    Postconditions
+    --------------
+    If direction == [0, 0], an empty array is returned.
+    Otherwise, pixels.shape[1] == 2
+
+    """
+    if np.all(direction == 0):
+        return np.array([[]])
+
+    pixels = []
+    parallel = (direction != 0).astype(np.int)
+    sign = int(direction[parallel == 1])
+    orthogonal = (direction == 0).astype(np.int)
+    for i in range(1, radius+1):
+        for j in range(-radius, radius+1):
+            pixels.append(list(sign * i * parallel + j * orthogonal))
+
+    return np.array(pixels)
 
 
 class DumbPolicy:
@@ -95,9 +123,9 @@ class Agent:
     Fields:
         -position: current position, a coordinate pair;
         -target: target coordinate pair;
-        -neighborhood: representation of the surrounding 8 pixels.
+        -neighborhood: representation of the surrounding 9 pixels.
     """
-    def __init__(self, start, target, board):
+    def __init__(self, start, target, board, agent_id):
         """
         Construct an Agent object.
 
@@ -119,6 +147,8 @@ class Agent:
         self.board = board
         self._local_state = LocalState(self)  # state representer class
         self.local_clock = 0  # local clock
+        self.agent_id = agent_id
+        self.prev_position = self.position  # initialize; update with move()
 
     @property
     def state(self):
@@ -132,6 +162,18 @@ class Agent:
             numpy-friendly state data aggregator
         """
         return self._local_state.state
+
+    @property
+    def dist_to_go(self):
+        """
+        Return the l_1 distance between self's current position and that of
+        the target position.
+
+        Note: this method ignores obstacles and other agents that might be in
+        the way! We return only the l_1 distance between two pixels. Nothing
+        fancy is done w.r.t. obstacle avoidance.
+        """
+        return np.linalg.norm(self.target - self.position, ord=1)
 
     def attarget(self):
         """
@@ -168,12 +210,14 @@ class Agent:
         # new axis
 
         # find all of the pixels *leaving* the neighborhood
-        old_axis = self.position + MOVES[direction]['out']
+        old_axis = self.position + get_pixels(-MOVES[direction], 1)
 
+        # update previous position (needed for agents_hit() in env.py)
+        self.prev_position = self.position
         # move the agent's position
-        self.position += MOVES[direction]['dir']
+        self.position += MOVES[direction]
 
-        new_axis = self.position + MOVES[direction]['in']
+        new_axis = self.position + get_pixels(MOVES[direction], 1)
 
         for pixel in old_axis:
             # remove pixels no longer in the neighborhood
@@ -215,7 +259,7 @@ class Agent:
         Returns
         -------
         priority_val: float
-            higher is gooder
+            higher iz gooder
         """
         return np.linalg.norm(self.target - self.position, ord=1)
 
@@ -255,23 +299,37 @@ class DistributedBoard:
     Fields:
         -agents: a set of Agents;
         -obstacles: a set of pixels that are blocked-off and can't be used;
-        -active_pixels: a dict: pixels -> Agents. These are pixels either
-         occupied by agents or those within agents' local neighborhoods.
+        -active_pixels: defaultdict: pixels -> Set[Agent]. These are pixels
+         either occupied by agents or those within agents' local neighborhoods;
+        -prev_active_pixels: active_pixels as seen in the previous
+         (board-clock) time-step;
+        -queue: heap used to handle orders in which agents are to move;
+        -clock: time-step counter.
     """
     def __init__(self, starts, targets, obstacles):
         """
-        Construct a DistributedState object.
+        Construct a DistributedBoard object.
         """
         self._starts = starts
         self._targets = targets
         self.obstacles = obstacles  # Set of length-two numpy arrays
+
+    def _snapshot(self):
+        """
+        Stash current timestep info.
+
+        Allows recovery of local neighborhood of a given agent from
+        the stashed timestep.
+        """
+        self.prev_active_pixels = deepcopy(self.active_pixels)
 
     def reset(self):
         """
         Resets the DistributedBoard, useful for reusing the same object for gym
         Environment
         """
-        self.agents = [Agent(s, t, self) for s, t in zip(self._starts, self._targets)]
+        self.agents = [Agent(s, t, self, i) \
+                       for i, (s, t) in enumerate(zip(self._starts, self._targets))]
         self.queue = []
         self.clock = 0
 
@@ -287,6 +345,8 @@ class DistributedBoard:
             # populate the queue
             self.insert(agent)
 
+        self._snapshot()
+
     def pop(self):
         """
         Pops the next agent from the queue and returns it. During processing, we
@@ -301,7 +361,8 @@ class DistributedBoard:
             the agent with the highest priority
         """
         agent = heapq.heappop(self.queue)
-        self.clock = max(self.clock, agent.local_clock)
+        self._snapshot()
+        self.clock = max(agent.local_clock, self.clock)
         agent.local_clock = self.clock
 
         return agent
@@ -312,7 +373,8 @@ class DistributedBoard:
         processing, the board's clock and the agent's local clock is updated.
         """
         agent = self.queue[0]
-        self.clock = max(self.clock, agent.local_clock)
+        self._snapshot()
+        self.clock = max(agent.local_clock, self.clock)
         agent.local_clock = self.clock
 
         return agent
