@@ -68,7 +68,7 @@ class Crossover:
         where alpha is a uniform random variable of identical shape
         """
         assert p1.shape == p2.shape
-    
+
         alpha = torch.rand(*p1.shape)
         return alpha * p1 + (1. - alpha) * p2
 
@@ -83,43 +83,43 @@ class Crossover:
         where alpha is a uniform random variable in [0,1]
         """
         assert p1.shape == p2.shape
-    
+
         alpha = random.random()
         return alpha * (p2 - p1) + p2
 
     @staticmethod
     def laplace(p1, p2, loc=0., scale=1.):
         assert p1.shape == p2.shape
-    
+
         alpha = torch.rand(1)
         coeff = 2. * (alpha <= 0.5) - 1.
         beta = loc - coeff * scale * torch.log(alpha)
-    
+
         x1, x2 = p1 + beta * torch.abs(p1 - p2), p2 + beta * torch.abs(p1 - p2)
         return x1 if random.random() < 0.5 else x2
-    
+
     @staticmethod
     def blxa(p1, p2, alpha=0.5):
         assert p1.shape == p2.shape
-    
+
         upper = torch.max(p1, p2)
         lower = torch.min(p1, p2)
         length = upper - lower
         upper += length * alpha
         lower -= length * alpha
-    
+
         return lower + (upper - lower) * torch.rand(p1.shape)
 
     @staticmethod
     def pbxa(p1, p2, alpha=0.5):
         assert p1.shape == p2.shape
-    
+
         upper = torch.max(p1, p2)
         lower = torch.min(p1, p2)
         length = upper - lower
         upper += length * alpha
         lower -= length * alpha
-    
+
         return lower + (upper - lower) * torch.rand(p1.shape)
 
 

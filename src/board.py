@@ -16,8 +16,9 @@ MOVES = {
 
 def get_pixels(direction, radius):
     """
-    Given a specified direction and radius, return every pixel in the L infinity
-    neighborhood of (0,0) of the given radius along the given direction.
+    Given a specified direction and radius, return every pixel in the L
+    infinity neighborhood of (0,0) of the given radius along the given
+    direction.
 
     So for example, if the direction is [1,0] (east), the pixels returned are
     all of the pixels to the right of (0,0).
@@ -33,7 +34,7 @@ def get_pixels(direction, radius):
     Returns
     -------
     pixels: numpy ndarray
-        Every pixel along the given direction in the L infinity neighborhood  of
+        Every pixel along the given direction in the L infinity neighborhood of
         (0,0) within the given radius.
 
     Preconditions
@@ -189,8 +190,8 @@ class Agent:
         """
         "Move" the agent according to the specified direction. After calling
         this method, the following will have been updated:
-            * the agent's position will be in the adjacent tile corresponding to
-              the direction
+            * the agent's position will be in the adjacent tile corresponding
+              to the direction
             * the agent will have "exited" from the tiles opposite of the
               direcction of movement
             * the agent will have "entered" the tiles along the direction of
@@ -250,8 +251,8 @@ class Agent:
 
     def priority(self):
         """
-        Priority value of the agent to be evaluated in the movement queue in the
-        board
+        Priority value of the agent to be evaluated in the movement queue in
+        the board.
 
         TODO: make a better priority function, possibly give it over to a
         learner?
@@ -329,7 +330,8 @@ class DistributedBoard:
         Environment
         """
         self.agents = [Agent(s, t, self, i) \
-                       for i, (s, t) in enumerate(zip(self._starts, self._targets))]
+                       for i, (s, t) in enumerate(zip(self._starts,
+                                                      self._targets))]
         self.queue = []
         self.clock = 0
 
@@ -349,11 +351,11 @@ class DistributedBoard:
 
     def pop(self):
         """
-        Pops the next agent from the queue and returns it. During processing, we
-        also manage the board's clock and the agent's local clock.
+        Pops the next agent from the queue and returns it. During processing,
+        we also manage the board's clock and the agent's local clock.
 
-        See https://github.com/DavidNKraemer/SoCG21/issues/3#issue-784378247 for
-        details of this implementation.
+        See https://github.com/DavidNKraemer/SoCG21/issues/3#issue-784378247
+        for details of this implementation.
 
         Returns
         -------
@@ -424,9 +426,9 @@ class LocalState:
         Encode current position, target position, and neighborhood.
 
         Current features:
-            * for every tile in the neighborhood of the agent, return the number
-            of agents occupying the tile as well as whether an obstacle is
-            occupying the tile
+            * for every tile in the neighborhood of the agent, return the
+              number of agents occupying the tile as well as whether an
+              obstacle is occupying the tile
             * current location of the agent
             * target location of the agent
 

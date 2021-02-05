@@ -48,10 +48,10 @@ class NogradModule:
         """
         self.model = model
         self.parameters = self.model.parameters
-        
+
         # tuple of shapes of every parameter layer of the network
         self.shape = tuple(p.shape for p in self.parameters())
-        
+
         # total number of weights in the network
         self.size = sum(reduce(mul, shape) for shape in self.shape)
 
@@ -67,7 +67,7 @@ class NogradModule:
             Flattened representation of the underlying network
         """
         return torch.cat([p.data.reshape(-1) for p in self.parameters()])
-    
+
     @values.setter
     def values(self, new_values):
         """
@@ -86,13 +86,13 @@ class NogradModule:
         new_values.size() == self.size
         """
         assert new_values.size()[0] == self.size, "Error"
-        
-        index = 0     
-        
+
+        index = 0
+
         # loop through every layer of parameters in the model
         for param in self.parameters():
             # size of the current block
-            size = reduce(mul, param.shape) 
+            size = reduce(mul, param.shape)
 
             # select the corresponding block in the new_values
             block = new_values[index:index+size].reshape(param.shape)
