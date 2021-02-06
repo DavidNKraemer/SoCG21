@@ -456,3 +456,73 @@ class LocalState:
             self.agent.position, self.agent.target, neighborhood.reshape(-1)
         ]
 
+class NewLocalState:
+    """
+    Local state representation for a single Agent for use in DQN.
+
+    Each state is a stack, or tensor, of 3 square images composed of pixels,
+    centered on the Agent. Each image in the stack represents a different
+    piece of information: the number of neighboring Agents occupying nearby
+    pixels, a map of nearby obstacles, direction to the Agent's target, etc.
+    
+    The side length in pixels can be arbitrary, but should be odd so that
+    the Agent can occupy the central pixel.
+
+    In the case where side length is 3 pixels, an example state is:
+
+        [[[0, 0, 0],
+          [0, 1, 0],
+          [0, 0, 0]],
+
+         [[1, 0, 0],
+          [0, 0, 0],
+          [0, 0, 0]],
+
+         [[0, 0, 1],
+          [0, 0, 0],
+          [0, 0, 0]]]
+
+    where the first image gives the agent neighborhood, the second gives
+    the obstacle neighborhood, and the third has a 1 in the direction of the
+    Agent's target.
+    """
+
+    def __init__(self, agent, neighborhood_radius=1):
+        self.agent = agent
+        self.board = self.agent.board
+        self.neighborhood_radius = neighborhood_radius
+        self.side_length = 2 * neighborhood_radius + 1
+
+    @property
+    def state(self):
+        state = np.zeros((3, self.side_length, self.side_length))
+
+        neighborhood = np.array(
+            list(self.agent.neighborhood(self.neighborhood_radius))
+        )
+        offset = neighborhood[0]
+
+        for pixel in neighborhood:
+            # add number of agents to each pixel in first image
+            for agent in self.board.active_pixels[tuple(pixel)]:
+                if np.all(agent.position == pixel):
+                    indices = 0, *(agent.position - offset)
+                    state[indices] += 1
+
+            # add obstacles to second image
+            indices = 1, *(pixel - offset)
+            state[indices] = int(pixel in self.board.obstacles)
+
+        # add target direction to third image, projecting onto neighborhood
+        # if necessary
+        if self.agent.target in neighborhood:
+            indices = 2, *(self.agent.target - offset)
+            state[indices] = 1
+        else:
+            distances = np.array([np.linalg.norm(self.agent.target - pixel, ord=2)
+                                 for pixel in neighborhood])
+            indices = 2, *(neighborhood[np.argmin(distances)] - offset)
+            state[indices] = 1
+
+        # flip each image, as images were modified upside-down
+        return np.flip(np.transpose(state, axes=(0, 2, 1)), axis=1)
