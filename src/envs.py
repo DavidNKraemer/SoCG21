@@ -188,6 +188,7 @@ class BoardEnv(gym.Env):
             low=-np.inf, high=np.inf, shape=LocalState.shape
         )
         self.reward_fn = reward_fn
+        self.sim_stats = SimStats()
 
     def step(self, action):
         """
@@ -196,7 +197,7 @@ class BoardEnv(gym.Env):
         Params
         ------
         action: str
-            Action for the given agent to move and update the board
+            Action for the given agent to move and update the board.
 
         Returns
         -------
@@ -216,12 +217,21 @@ class BoardEnv(gym.Env):
         action in range(5)
         self.reset() was already called
         """
+        # please don't re-order
         actions = ['E', 'W', 'N', 'S', '']
 
         # pop the next agent, move according to the action, and re-insert
         agent = self.board.pop()
         agent.move(actions[action])
         self.board.insert(agent)
+
+        # update sim_stats
+        self.sim_stats.agent_collisions += agents_hit(agent)
+        self.sim_stats.obs_hit += obstacles_hit(agent)
+        # if action is not the empty string
+        if action != 4:
+            self.sim_stats.dist_trav += 1
+        self.sim_stats.clock = self.board.clock
 
         # save the state by peeking at the following agent in the queue
         self.state = self.board.peek().state

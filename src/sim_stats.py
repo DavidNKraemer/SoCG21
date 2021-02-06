@@ -21,10 +21,9 @@ class SimStats:
 
     def __init__(self):
         """
-        Construct an empty SimStats instance before running.
+        Construct an initialized SimStats instance before simulating.
         """
         self.dist_trav = 0
         self.time = 0
         self.obs_hit = 0
         self.agent_collisions = 0
-
