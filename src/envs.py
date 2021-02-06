@@ -232,7 +232,7 @@ class BoardEnv(gym.Env):
         # if action is not the empty string
         if action != 4:
             self.sim_stats.dist_trav += 1
-        self.sim_stats.clock = self.board.clock
+        self.sim_stats.time = self.board.clock
 
         # save the state by peeking at the following agent in the queue
         self.state = self.board.peek().state
