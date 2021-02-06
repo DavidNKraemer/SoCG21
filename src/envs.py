@@ -5,7 +5,7 @@ from src.sim_stats import SimStats
 from src.board import DistributedBoard, LocalState
 
 
-def fitness(sim_stats, dist_trav_pen, time_pen, obs_hit_pen,
+def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
             agent_collisions_pen, error_pen, finish_bonus):
     """
     Return the value of the fitness function associated with a simulation
@@ -19,8 +19,8 @@ def fitness(sim_stats, dist_trav_pen, time_pen, obs_hit_pen,
 
     Params
     ------
-    sim_stats: SimStats
-        Simulation statistics object that describes a simulation trajectory.
+    board_env: BoardEnv
+        Board environment; from this, we extract board_env.sim_stats.
     dist_trav_pen: float
         Penalty multiplier for total distance travelled.
     time_pen: float
@@ -42,6 +42,7 @@ def fitness(sim_stats, dist_trav_pen, time_pen, obs_hit_pen,
     reward: float
         Reward signal.
     """
+    sim_stats = board_env.sim_stats  # alias
     # destructure sim_stats so below linear combination is more concise
     dist_trav, time = sim_stats.dist_trav, sim_stats.time
     obs_hit, agents_hit = sim_stats.obs_hit, sim_stats, agents_hit
