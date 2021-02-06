@@ -20,7 +20,8 @@ def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
     Params
     ------
     board_env: BoardEnv
-        Board environment; from this, we extract board_env.sim_stats.
+        Board environment AFTER a simulation of the genetic algorithm has
+        terminated. From this, we extract board_env.sim_stats.
     dist_trav_pen: float
         Penalty multiplier for total distance travelled.
     time_pen: float
@@ -233,6 +234,7 @@ class BoardEnv(gym.Env):
         if action != 4:
             self.sim_stats.dist_trav += 1
         self.sim_stats.time = self.board.clock
+        self.sim_stats.error(self.board)
 
         # save the state by peeking at the following agent in the queue
         self.state = self.board.peek().state

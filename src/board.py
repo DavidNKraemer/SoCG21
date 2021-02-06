@@ -464,7 +464,7 @@ class NewLocalState:
     centered on the Agent. Each image in the stack represents a different
     piece of information: the number of neighboring Agents occupying nearby
     pixels, a map of nearby obstacles, direction to the Agent's target, etc.
-    
+
     The side length in pixels can be arbitrary, but should be odd so that
     the Agent can occupy the central pixel.
 
@@ -519,8 +519,8 @@ class NewLocalState:
             indices = 2, *(self.agent.target - offset)
             state[indices] = 1
         else:
-            distances = np.array([np.linalg.norm(self.agent.target - pixel, ord=2)
-                                 for pixel in neighborhood])
+            distances = np.array([np.linalg.norm(
+                self.agent.target - pixel, ord=2) for pixel in neighborhood])
             indices = 2, *(neighborhood[np.argmin(distances)] - offset)
             state[indices] = 1
 

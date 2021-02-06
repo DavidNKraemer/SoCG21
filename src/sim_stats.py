@@ -1,3 +1,6 @@
+from board import DistributedBoard
+
+
 class SimStats:
     """
     Object that logs and stores statistics describing one simulation
@@ -27,3 +30,18 @@ class SimStats:
         self.time = 0
         self.obs_hit = 0
         self.agent_collisions = 0
+
+    @property
+    def error(self, board):
+        """
+        Return the sum of L1 distances between agents' final positions and
+        their targets.
+
+        Parameter
+        ---------
+        board: DistributedBoard
+        """
+        aggregate_error = 0
+        for agent in board.agents:
+            aggregate_error += agent.dist_to_go()
+        self.error = aggregate_error
