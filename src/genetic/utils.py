@@ -48,6 +48,10 @@ class NogradModule:
         """
         self.model = model
         self.parameters = self.model.parameters
+
+        # disable gradients
+        for param in self.parameters():
+            param.requires_grad = False
         
         # tuple of shapes of every parameter layer of the network
         self.shape = tuple(p.shape for p in self.parameters())
@@ -102,6 +106,26 @@ class NogradModule:
 
             # move the block forward
             index += size
+
+    def __call__(self, x):
+        """
+        Wrapper for the call function of the underlying torch model
+
+        Params
+        ------
+        x: torch.tensor
+            input tensor    
+        Returns
+        -------
+        output: torch.tensor
+            model output from the given input
+
+        Preconditions
+        -------------
+        x.dtype == torch.float32
+        x.shape[-1] == self.in_features
+        """
+        return self.model(x)
 
     def __str__(self):
         """

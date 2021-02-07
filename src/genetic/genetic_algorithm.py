@@ -1,8 +1,9 @@
+import numpy as np
 import torch
 from abc import ABC, abstractmethod
 import random
-from operator import methodcaller
-
+from operator import attrgetter, methodcaller
+from src.board import DistributedBoard
 
 class GeneticAlgorithm(ABC):
     """
@@ -122,8 +123,20 @@ class Crossover:
     
         return lower + (upper - lower) * torch.rand(p1.shape)
 
+class Mutator:
+    __instance = None
+    def __new__(cls, *args):
+        if cls.__instance is None:
+            cls.__instance = object.__new__(cls, *args)
+        return cls.__instance
+
+    @staticmethod
+    def mutate(weights):
+        return weights + torch.randn(weights.shape)
+    
 
 crossover = Crossover()
+mutator = Mutator()
 
 
 class DemoGA(GeneticAlgorithm):
@@ -163,6 +176,7 @@ class DemoGA(GeneticAlgorithm):
         n_parents: int
             Number of parents to take from the population for crossbreeding
         """
+        super(GeneticAlgorithm, self).__init__()
         self.inputs = inputs
         self.outputs = outputs
         self.n_population = n_population
@@ -220,3 +234,140 @@ class DemoGA(GeneticAlgorithm):
         for specie in self.population:
             specie.weights += torch.randn(specie.weights.shape)
 
+
+def board_fitness(board):
+    return 1.
+
+
+class BoardGA(GeneticAlgorithm):
+    """
+    Genetic algorithm implementation for the DistributedBoard. Basically what we
+    need for solving the SOCG competition problems via genetic algorithms.
+    """
+
+    class Policy:
+        """
+
+        """
+        def __init__(self, model):
+            """
+            """
+            self.model = model
+            self.fitness = 0
+            self.actions = ['W', 'E', 'N', 'S', '']
+
+        def __call__(self, agent):
+            """
+            """
+            model_in = torch.from_numpy(agent.state.astype(np.float32))
+
+            # model produces a distribution on available actions
+            policy = self.model(model_in)
+
+            # unpack a list of length 1 with the ',' shortcut
+            action, = random.choices(self.actions, weights=policy, k=1)
+
+            return action
+
+        def __repr__(self):
+            """
+            """
+            return f"GAPolicy<{id(self)}>({repr(self.model)})"
+
+        def __str__(self):
+            """
+            """
+            return f"GAPolicy({str(self.model)})"
+
+    def __init__(self, model_factory, **kwargs):
+        """
+        """
+        super(GeneticAlgorithm, self).__init__()
+
+        self.model_factory = model_factory
+
+        # GA parameters
+        self.n_population = kwargs.get('n_population', 10_000)
+        self.n_parents = kwargs.get('n_parents', 100)
+        # for determining the fitness rankings
+        self.evaluator = attrgetter('fitness')
+        self.crossover = crossover.amxo
+        self.mutator = mutator.mutate
+
+    def set_board(self, starts, targets, obstacles, **kwargs):
+        self.board = DistributedBoard(
+            starts, targets, obstacles, max_clock=kwargs.get('max_clock')
+        )
+
+    def initialize(self):
+        """
+        """
+        self.generation = 0
+        self.population = [
+            self.Policy(self.model_factory()) for _ in range(self.n_population)
+        ]
+
+    def evaluate(self):
+        """
+        Evaluate the generation
+        """
+        # Perform the simulations
+        for policy in self.population:  # ideally, parallelize here
+            self.board.reset()
+            while not self.board.isdone():
+                # NOTE: revisit the callback location, maybe here?
+                agent = self.board.pop()
+                direction = policy(agent)
+                agent.move(direction)
+                self.board.insert(agent)
+
+            policy.fitness = board_fitness(self.board)  # TODO: define
+
+        self.population.sort(key=self.evaluator, reverse=True)
+    
+    def select(self):
+        """
+        Currently, just take the top specimens
+        """
+        self.parents = self.population[:self.n_parents]
+
+    def cross(self):
+        """
+        """
+        self.population = []
+        for _ in range(self.n_population):
+            # get two parents
+            p1, p2 = random.choices(self.parents, k=2)
+
+            # "breed" the two parents' models' values
+            weights = self.crossover(p1.model.values, p2.model.values)
+
+            # construct a model from the "child" weights
+            model = self.model_factory()
+            model.values = weights
+
+            # add a child to the next population
+            self.population.append(self.Policy(model))
+
+        self.generation += 1
+
+    def mutate(self):
+        """
+        """
+        for policy in self.population:
+            policy.model.values = self.mutator(policy.model.values)
+
+    def train(self, n_generations):
+        self.initialize()
+        
+        for gen in range(n_generations):
+            print(f"Generation {gen}:", end=" ")
+            print("evaluating...", end=" ")
+            self.evaluate()
+            print("selecting parents...", end=" ")
+            self.select()
+            print("breeding...", end=" ")
+            self.cross()
+            print("mutating...", end=" ")
+            self.mutate()
+            print("done!")

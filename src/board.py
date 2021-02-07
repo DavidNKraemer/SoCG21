@@ -45,15 +45,15 @@ def get_pixels(direction, radius):
     --------------
     If direction == [0, 0], an empty array is returned.
     Otherwise, pixels.shape[1] == 2
-
     """
     if np.all(direction == 0):
-        return np.array([[]])
+        return np.array([[]]).reshape(-1,2)
 
     pixels = []
-    parallel = (direction != 0).astype(np.int)
+    parallel = (direction != 0).astype(np.int) # parallel axis
     sign = int(direction[parallel == 1])
-    orthogonal = (direction == 0).astype(np.int)
+    orthogonal = (direction == 0).astype(np.int)  # orthogonal axis
+
     for i in range(1, radius+1):
         for j in range(-radius, radius+1):
             pixels.append(list(sign * i * parallel + j * orthogonal))
@@ -303,13 +303,14 @@ class DistributedBoard:
         -queue: heap used to handle orders in which agents are to move;
         -clock: time-step counter.
     """
-    def __init__(self, starts, targets, obstacles):
+    def __init__(self, starts, targets, obstacles, **kwargs):
         """
         Construct a DistributedBoard object.
         """
         self._starts = starts
         self._targets = targets
         self.obstacles = obstacles  # Set of length-two numpy arrays
+        self.max_clock = kwargs.get('max_clock', None)
 
     def _snapshot(self):
         """
@@ -318,7 +319,7 @@ class DistributedBoard:
         Allows recovery of local neighborhood of a given agent from
         the stashed timestep.
         """
-        self.prev_active_pixels = deepcopy(self.active_pixels)
+        # self.prev_active_pixels = deepcopy(self.active_pixels)
 
     def reset(self):
         """
@@ -397,7 +398,10 @@ class DistributedBoard:
         -------
         True iff every agent is at its target position
         """
-        return all(agent.attarget() for agent in self.agents)
+        targets_reached = all(agent.attarget() for agent in self.agents)
+        clock_expired = False if self.max_clock is None else \
+            self.clock >= self.max_clock
+        return clock_expired or targets_reached
 
 
 class LocalState:
