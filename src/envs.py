@@ -1,8 +1,58 @@
 import gym
 import numpy as np
-
+from operator import attrgetter
+from src.sim_stats import SimStats
 from src.board import DistributedBoard, LocalState
 
+
+def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
+            agent_collisions_pen, error_pen, finish_bonus):
+    """
+    Return the value of the fitness function associated with a simulation
+    trajectory.
+
+    IMPORTANT
+    ---------
+    Higher *_pen values are associated with more penalty (i.e., more negative
+    reward), and higher finish_bonus values are associated with more reward.
+    Penalties are negated to convert them into rewards.
+
+    Params
+    ------
+    board_env: BoardEnv
+        Board environment AFTER a simulation of the genetic algorithm has
+        terminated. From this, we extract board_env.sim_stats.
+    dist_trav_pen: float
+        Penalty multiplier for total distance travelled.
+    time_pen: float
+        Penalty multiplier for total time elapsed, computed using board clock.
+    obs_hit_pen: float
+        Pentalty multiplier for the number of obstacles hit.
+    agent_collisions_pen: float
+        Penalty multiplier for the number of agent collisions.
+    error_pen: float
+        Penalty multiplier for the error. Error is defined as the distance
+        between agent's final position at simulation end and target, aggregated
+        over all agents.
+    finish_bonus: float
+        Reward multiplier for finishing before the simulation circuit breaker
+        has been tripped.
+
+    Returns
+    -------
+    reward: float
+        Reward signal.
+    """
+    sim_stats = board_env.sim_stats  # alias
+    # destructure sim_stats so below linear combination is more concise
+    dist_trav, time = sim_stats.dist_trav, sim_stats.time
+    obs_hit, agents_hit = sim_stats.obs_hit, sim_stats, agents_hit
+    error, finish = sim_stats.error, sim_stats.finish
+    # return a linear combination of rewards
+    return (finish_bonus*finish -(dist_trav_pen*dist_trav + time_pen*time
+                                  + obs_hit_pen*obs_hit
+                                  + agent_collisons_pen*agent_collisions
+                                  + error_pen*error))
 
 def obstacles_hit(agent):
     """
@@ -16,10 +66,7 @@ def obstacles_hit(agent):
     """
     # obstacles don't move. Collision occurred in previous time-step iff
     # agent's position in present time-step is an obstacle pixel.
-    if agent.position in agent.board.obstacles:
-        return 1
-    else:
-        return 0
+    return int(agent.position in agent.board.obstacles)
 
 def agents_hit(agent):
     """
@@ -33,38 +80,44 @@ def agents_hit(agent):
     W = np.array([-1, 0])
     E = np.array([1, 0])
 
-    n_collisions = 0
+    agent_id = attrgetter("agent_id")
+    n_collisions = len(agent.board.active_pixels[tuple(agent.position)]) - 1
     for direction in [N, S, W, E]:
         # the set of agents in the pixel to the e.g., North of the agent;
         # store set of agents in this pixel at previous time-step
         prev_agents = agent.board.prev_active_pixels[
-            tuple(agent.position + direction)]
+            tuple(agent.prev_position + direction)]
+        prev_ids = set(map(agent_id, prev_agents))
         for other_direction in [N, S, W, E]:
             # check all other cardinal directions at the current time-step
             if other_direction is not direction:
                 # store set of agents in this pixel at current time-step
                 curr_agents = agent.board.active_pixels[
                     tuple(agent.position + other_direction)]
+                curr_ids = set(map(agent_id, curr_agents))
                 # take intersection of two sets, and increment by cardinality
-                n_collisions += len(curr_agents & prev_agents)
+                n_collisions += len(curr_ids & prev_ids)
 
     return n_collisions
 
-def agent_reward(agent, alpha, beta, gamma):
+def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen):
     """
     Return the "instantaneous" reward signal for the specified agent.
 
-    alpha, beta, and gamma require tuning.
+    IMPORTANT
+    ---------
+    Higher *_pen values are associated with more penalty (i.e., more negative
+    reward). Penalties are negated to convert them into rewards.
 
     Params
     ------
     agent: Agent
         Agent under consideration.
-    alpha: float
+    dist_pen: float
         Penalty multiplier for distance-to-go.
-    beta: float
+    obs_hit_pen: float
         Pentalty multiplier for hitting an obstacle.
-    gamma: float
+    agents_hit_pen: float
         Penalty multiplier for hitting another agent.
 
     Returns
@@ -79,9 +132,10 @@ def agent_reward(agent, alpha, beta, gamma):
     # dist_to_go() returns the l_1 distance between an agent's position
     # and its target, ignoring intermediate obstacles and other agents that
     # might be in the way. See board.py's Agent class.
-    return (alpha*agent.dist_to_go() + beta*obstacles_hit(agent)
-            + gamma*agents_hit(agent))
+    return -(dist_pen*agent.dist_to_go() + obs_hit_pen*obstacles_hit(agent)
+            + agents_hit_pen*agents_hit(agent))
 
+# TODO: decide if we need this function
 def board_reward(board, alpha, beta, gamma):
     """
     Given a DistributedBoard, return the "instantaneous" reward signal.
@@ -113,7 +167,7 @@ def board_reward(board, alpha, beta, gamma):
 
 class BoardEnv(gym.Env):
 
-    def __init__(self, starts, targets, obstacles):
+    def __init__(self, starts, targets, obstacles, reward_fn):
         """
         Params
         ------
@@ -135,6 +189,8 @@ class BoardEnv(gym.Env):
         self.observation_space = gym.spaces.Box(
             low=-np.inf, high=np.inf, shape=LocalState.shape
         )
+        self.reward_fn = reward_fn
+        self.sim_stats = SimStats()
 
     def step(self, action):
         """
@@ -143,7 +199,7 @@ class BoardEnv(gym.Env):
         Params
         ------
         action: str
-            Action for the given agent to move and update the board
+            Action for the given agent to move and update the board.
 
         Returns
         -------
@@ -163,6 +219,7 @@ class BoardEnv(gym.Env):
         action in range(5)
         self.reset() was already called
         """
+        # please don't re-order
         actions = ['E', 'W', 'N', 'S', '']
 
         # pop the next agent, move according to the action, and re-insert
@@ -170,13 +227,22 @@ class BoardEnv(gym.Env):
         agent.move(actions[action])
         self.board.insert(agent)
 
+        # update sim_stats
+        self.sim_stats.agent_collisions += agents_hit(agent)
+        self.sim_stats.obs_hit += obstacles_hit(agent)
+        # if action is not the empty string
+        if action != 4:
+            self.sim_stats.dist_trav += 1
+        self.sim_stats.time = self.board.clock
+        self.sim_stats.error(self.board)
+
         # save the state by peeking at the following agent in the queue
         self.state = self.board.peek().state
 
         done = self.board.isdone()
 
         # TODO: do something better
-        reward = board_reward(self.board)
+        reward = self.reward_fn(agent)
 
         return agent.state, reward, done, {}
 
