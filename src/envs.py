@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-from operator import attrgetter
+from operator import attrgetter, mul
 from src.sim_stats import SimStats
 from src.board import DistributedBoard, LocalState
 
@@ -46,13 +46,15 @@ def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
     sim_stats = board_env.sim_stats  # alias
     # destructure sim_stats so below linear combination is more concise
     dist_trav, time = sim_stats.dist_trav, sim_stats.time
-    obs_hit, agents_hit = sim_stats.obs_hit, sim_stats, agents_hit
-    error, finish = sim_stats.error, sim_stats.finish
+    obs_hit, agent_collisions = sim_stats.obs_hit, sim_stats.agent_collisions
+    error, finished = sim_stats.error, sim_stats.finished
     # return a linear combination of rewards
-    return (finish_bonus*finish -(dist_trav_pen*dist_trav + time_pen*time
-                                  + obs_hit_pen*obs_hit
-                                  + agent_collisons_pen*agent_collisions
-                                  + error_pen*error))
+    penalties = [dist_trav_pen, time_pen, obs_hit_pen, agent_collisions_pen,
+                 error_pen]
+    stats = [dist_trav, time, obs_hit, agent_collisions, error]
+    costs = sum(map(mul, penalties, stats))
+
+    return finish_bonus*finished - costs
 
 def obstacles_hit(agent):
     """
@@ -80,21 +82,18 @@ def agents_hit(agent):
     W = np.array([-1, 0])
     E = np.array([1, 0])
 
-    agent_id = attrgetter("agent_id")
     n_collisions = len(agent.board.active_pixels[tuple(agent.position)]) - 1
     for direction in [N, S, W, E]:
         # the set of agents in the pixel to the e.g., North of the agent;
         # store set of agents in this pixel at previous time-step
-        prev_agents = agent.board.prev_active_pixels[
+        prev_ids = agent.board.prev_active_pixels[
             tuple(agent.prev_position + direction)]
-        prev_ids = set(map(agent_id, prev_agents))
         for other_direction in [N, S, W, E]:
             # check all other cardinal directions at the current time-step
             if other_direction is not direction:
                 # store set of agents in this pixel at current time-step
-                curr_agents = agent.board.active_pixels[
+                curr_ids = agent.board.active_pixels[
                     tuple(agent.position + other_direction)]
-                curr_ids = set(map(agent_id, curr_agents))
                 # take intersection of two sets, and increment by cardinality
                 n_collisions += len(curr_ids & prev_ids)
 
@@ -167,7 +166,7 @@ def board_reward(board, alpha, beta, gamma):
 
 class BoardEnv(gym.Env):
 
-    def __init__(self, starts, targets, obstacles, reward_fn):
+    def __init__(self, starts, targets, obstacles, reward_fn, **board_kwargs):
         """
         Params
         ------
@@ -183,7 +182,7 @@ class BoardEnv(gym.Env):
         starts.shape[0] == targets.shape[0]
         starts.shape[1] == targets.shape[1] == obstacles.shape[1] == 2
         """
-        self.board = DistributedBoard(starts, targets, obstacles)
+        self.board = DistributedBoard(starts, targets, obstacles, **board_kwargs)
 
         self.action_space = gym.spaces.Discrete(5)
         self.observation_space = gym.spaces.Box(
@@ -226,22 +225,24 @@ class BoardEnv(gym.Env):
         agent = self.board.pop()
         agent.move(actions[action])
         self.board.insert(agent)
+        done = self.board.isdone()
 
         # update sim_stats
         self.sim_stats.agent_collisions += agents_hit(agent)
         self.sim_stats.obs_hit += obstacles_hit(agent)
+        self.sim_stats.finished = done
+
         # if action is not the empty string
-        if action != 4:
+        if action != 4:  
             self.sim_stats.dist_trav += 1
-        self.sim_stats.time = self.board.clock
-        self.sim_stats.error(self.board)
+
+        if done:
+            self.sim_stats.time = self.board.clock
+            self.sim_stats.compute_l1error(self.board)
 
         # save the state by peeking at the following agent in the queue
         self.state = self.board.peek().state
 
-        done = self.board.isdone()
-
-        # TODO: do something better
         reward = self.reward_fn(agent)
 
         return agent.state, reward, done, {}

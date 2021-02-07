@@ -3,7 +3,7 @@ import torch
 from abc import ABC, abstractmethod
 import random
 from operator import attrgetter, methodcaller
-from src.board import DistributedBoard
+from src.envs import fitness, BoardEnv
 
 class GeneticAlgorithm(ABC):
     """
@@ -254,12 +254,12 @@ class BoardGA(GeneticAlgorithm):
             """
             self.model = model
             self.fitness = 0
-            self.actions = ['W', 'E', 'N', 'S', '']
+            self.actions = [0,1,2,3,4]
 
-        def __call__(self, agent):
+        def __call__(self, agent_state):
             """
             """
-            model_in = torch.from_numpy(agent.state.astype(np.float32))
+            model_in = torch.from_numpy(agent_state.astype(np.float32))
 
             # model produces a distribution on available actions
             policy = self.model(model_in)
@@ -293,10 +293,12 @@ class BoardGA(GeneticAlgorithm):
         self.evaluator = attrgetter('fitness')
         self.crossover = crossover.amxo
         self.mutator = mutator.mutate
+        self.reward_fn = lambda *args, **kwargs: None
 
-    def set_board(self, starts, targets, obstacles, **kwargs):
-        self.board = DistributedBoard(
-            starts, targets, obstacles, max_clock=kwargs.get('max_clock')
+    def set_env(self, starts, targets, obstacles, **kwargs):
+        self.env = BoardEnv(
+            starts, targets, obstacles, self.reward_fn,
+            max_clock=kwargs.get('max_clock')
         )
 
     def initialize(self):
@@ -313,15 +315,16 @@ class BoardGA(GeneticAlgorithm):
         """
         # Perform the simulations
         for policy in self.population:  # ideally, parallelize here
-            self.board.reset()
-            while not self.board.isdone():
-                # NOTE: revisit the callback location, maybe here?
-                agent = self.board.pop()
-                direction = policy(agent)
-                agent.move(direction)
-                self.board.insert(agent)
+            self.env.reset()
+            done = self.env.board.isdone()
 
-            policy.fitness = board_fitness(self.board)  # TODO: define
+            while not done:
+                # NOTE: revisit the callback location, maybe here?
+                direction = policy(self.env.state)
+                _, _, done, _ = self.env.step(direction)
+
+            # TODO: eliminate magic numbers
+            policy.fitness = fitness(self.env, 1, 1, 1, 1, 1, 1)  
 
         self.population.sort(key=self.evaluator, reverse=True)
     

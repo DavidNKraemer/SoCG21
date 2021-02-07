@@ -222,12 +222,12 @@ class Agent:
 
         for pixel in old_axis:
             # remove pixels no longer in the neighborhood
-            self.board.active_pixels[tuple(pixel)].remove(self)
+            self.board.active_pixels[tuple(pixel)].remove(self.agent_id)
             if not self.board.active_pixels[tuple(pixel)]:
                 del self.board.active_pixels[tuple(pixel)]
         for pixel in new_axis:
             # add pixels now in the neighborhood
-            self.board.active_pixels[tuple(pixel)].add(self)
+            self.board.active_pixels[tuple(pixel)].add(self.agent_id)
 
         # update the local clock
         self.local_clock += 1
@@ -323,7 +323,7 @@ class DistributedBoard:
         Allows recovery of local neighborhood of a given agent from
         the stashed timestep.
         """
-        # self.prev_active_pixels = deepcopy(self.active_pixels)
+        self.prev_active_pixels = deepcopy(self.active_pixels)
 
     def reset(self):
         """
@@ -343,7 +343,7 @@ class DistributedBoard:
         for agent in self.agents:
             # activate pixels
             for pixel in agent.neighborhood(1):  # change for bigger nbds
-                self.active_pixels[tuple(pixel)].add(agent)
+                self.active_pixels[tuple(pixel)].add(agent.agent_id)
 
             # populate the queue
             self.insert(agent)
@@ -407,6 +407,19 @@ class DistributedBoard:
         return clock_expired or targets_reached
 
 
+def cart_to_imag(origin, position, radius):
+    """
+    Params
+    ------
+    origin: numpy ndarray
+    position: numpy ndarray
+    radius: int
+    """
+    diff = position - origin
+    imag_diff = np.array([-diff[1], diff[0]])
+
+    return np.full(imag_diff.shape, radius) + imag_diff
+
 class LocalState:
     """
     Local state information for one Agent.
@@ -443,18 +456,37 @@ class LocalState:
         encoded_state: nump ndarray
         """
         neighborhood = np.zeros((9, 2))
+        square_nbd = neighborhood.view().reshape((3,3,2))
+        
+        AGENTS, OBSTACLES = 0, 1
+
+
+
+        # for every pixel in the neighborhood
+        for index, pixel in enumerate(self.agent.neighborhood(1)):
+            # check if the pixel is occupied by an obstacle
+            neighborhood[index, OBSTACLES] = int(pixel in self.board.obstacles)
+
+            # for every (other) agent in the active_pixels set corresponding to the
+            # pixel
+            for agent_id in self.board.active_pixels[tuple(pixel)]:
+                # if the other agent is in the neighborhood, increment that
+                # position pixel 
+                if self.agent.agent_id != agent_id:
+                    other = self.board.agents[agent_id]
+                    i, j = cart_to_imag(self.agent.position, other.position, 1)
+                    square_nbd[i, j, AGENTS] += 1
 
         # update neighborhood
         # might need to update the below -- perhaps attach to Agent.move()?
         # it probably belongs to either Agent or Board
-        agent_positions = defaultdict(int)
-        for agent in self.board.agents:
-            agent_positions[tuple(agent.position)] += 1
+        # agent_positions = defaultdict(int)
+        # for agent in self.board.agents:
+        #     agent_positions[tuple(agent.position)] += 1
 
-        # search the neighborhood for agents and obstacles
-        for index, pixel in enumerate(self.agent.neighborhood(1)):
-            neighborhood[index, 0] = agent_positions[tuple(pixel)]
-            neighborhood[index, 1] = int(pixel in self.board.obstacles)
+        # # search the neighborhood for agents and obstacles
+        # for index, pixel in enumerate(self.agent.neighborhood(1)):
+        #     neighborhood[index, 0] = agent_positions[tuple(pixel)]
 
         return np.r_[
             self.agent.position, self.agent.target, neighborhood.reshape(-1)
