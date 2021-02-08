@@ -115,8 +115,6 @@ class DoubleDQNAgent:
                         self.gamma * \
                         self.target_q(next_states).max(1)[0].unsqueeze(dim=1)
 
-            # import pdb; pdb.set_trace()
-
             loss = self.q_loss(self.q(states).gather(1, actions), target_vals)
             self.q_optim.zero_grad()
             loss.backward()
