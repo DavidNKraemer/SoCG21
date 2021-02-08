@@ -310,8 +310,8 @@ class DistributedBoard:
     global bookeeping.
 
     Fields:
-        -agents: a set of Agents;
-        -obstacles: a set of pixels that are blocked-off and can't be used;
+        -agents: a list of Agents;
+        -obstacles: a list of pixels that are blocked-off and can't be used;
         -active_pixels: defaultdict: pixels -> Set[Agent]. These are pixels
          either occupied by agents or those within agents' local neighborhoods;
         -prev_active_pixels: active_pixels as seen in the previous
@@ -333,15 +333,15 @@ class DistributedBoard:
         """
         Stash current timestep info.
 
-        Allows recovery of local neighborhood of a given agent from
-        the stashed timestep.
+        Allows recovery of local neighborhood of a given agent from the stashed
+        timestep.
         """
         self.prev_active_pixels = deepcopy(self.active_pixels)
 
     def reset(self):
         """
         Resets the DistributedBoard, useful for reusing the same object for gym
-        Environment
+        environment.
         """
         self.agents = [self.agent_type(s, t, self, i) \
                        for i, (s, t) in enumerate(zip(self._starts,
@@ -471,21 +471,19 @@ class LocalState:
         """
         neighborhood = np.zeros((9, 2))
         square_nbd = neighborhood.view().reshape((3,3,2))
-        
+
         AGENTS, OBSTACLES = 0, 1
-
-
 
         # for every pixel in the neighborhood
         for index, pixel in enumerate(self.agent.neighborhood(1)):
             # check if the pixel is occupied by an obstacle
             neighborhood[index, OBSTACLES] = int(pixel in self.board.obstacles)
 
-            # for every (other) agent in the active_pixels set corresponding to the
-            # pixel
+            # for every (other) agent in the active_pixels set corresponding to
+            # the corresponding pixel
             for agent_id in self.board.active_pixels[tuple(pixel)]:
                 # if the other agent is in the neighborhood, increment that
-                # position pixel 
+                # position pixel
                 if self.agent.agent_id != agent_id:
                     other = self.board.agents[agent_id]
                     i, j = cart_to_imag(self.agent.position, other.position, 1)
@@ -546,9 +544,8 @@ class LocalStateDQN:
 
     def _is_row_in(self, arr, mat):
         """
-        Check if a 1D numpy array is a row in a 2D numpy array. 
+        Check if a 1D numpy array is a row in a 2D numpy array.
         """
-
         return np.any([np.array_equal(arr, row) for row in mat])
 
     @property
@@ -564,7 +561,8 @@ class LocalStateDQN:
             # add number of agents to each pixel in first image
             for agent_id in self.board.active_pixels[tuple(pixel)]:
                 agent = self.board.agents[agent_id]
-                if self.agent.agent_id != agent_id and np.all(agent.position == pixel):
+                if self.agent.agent_id != agent_id and np.all(
+                    agent.position == pixel):
                     indices = 0, *(agent.position - offset)
                     state[indices] += 1
 
