@@ -143,7 +143,7 @@ class Agent:
         -------------
         start.shape == target.shape == (2,)
         """
-        self.position = start  # length two numpy array
+        self.position = deepcopy(start)  # length two numpy array
         self.target = target  # length two numpy array
         self.board = board
         self._local_state = LocalState(self)  # state representer class
@@ -319,7 +319,9 @@ class DistributedBoard:
         -queue: heap used to handle orders in which agents are to move;
         -clock: time-step counter.
     """
-    def __init__(self, starts, targets, obstacles, agent_type=Agent, **kwargs):
+    def __init__(self, starts, targets, obstacles,
+                 agent_type=Agent, neighborhood_radius=1,
+                 **kwargs):
         """
         Construct a DistributedBoard object.
         """
@@ -328,6 +330,7 @@ class DistributedBoard:
         self.obstacles = obstacles  # Set of length-two numpy arrays
         self.max_clock = kwargs.get('max_clock', None)
         self.agent_type = agent_type
+        self.neighborhood_radius = neighborhood_radius
 
     def _snapshot(self):
         """
@@ -355,7 +358,7 @@ class DistributedBoard:
         # values are pointers to Agent objects
         for agent in self.agents:
             # activate pixels
-            for pixel in agent.neighborhood(1):  # change for bigger nbds
+            for pixel in agent.neighborhood(self.neighborhood_radius):
                 self.active_pixels[tuple(pixel)].add(agent.agent_id)
 
             # populate the queue
@@ -450,6 +453,7 @@ class LocalState:
         """
         self.agent = agent
         self.board = self.agent.board
+        self.neighborhood_radius = self.board.neighborhood_radius
 
     @property
     def state(self):
@@ -475,7 +479,8 @@ class LocalState:
         AGENTS, OBSTACLES = 0, 1
 
         # for every pixel in the neighborhood
-        for index, pixel in enumerate(self.agent.neighborhood(1)):
+        for index, pixel in enumerate(
+            self.agent.neighborhood(self.neighborhood_radius)):
             # check if the pixel is occupied by an obstacle
             neighborhood[index, OBSTACLES] = int(pixel in self.board.obstacles)
 
@@ -514,9 +519,6 @@ class LocalStateDQN:
     piece of information: the number of neighboring Agents occupying nearby
     pixels, a map of nearby obstacles, direction to the Agent's target, etc.
 
-    The side length in pixels can be arbitrary, but should be odd so that
-    the Agent can occupy the central pixel.
-
     In the case where side length is 3 pixels, an example state is:
 
         [[[0, 0, 0],
@@ -536,11 +538,11 @@ class LocalStateDQN:
     Agent's target.
     """
 
-    def __init__(self, agent, neighborhood_radius=1):
+    def __init__(self, agent):
         self.agent = agent
         self.board = self.agent.board
-        self.neighborhood_radius = neighborhood_radius
-        self.side_length = 2 * neighborhood_radius + 1
+        self.neighborhood_radius = self.board.neighborhood_radius
+        self.side_length = 2 * self.neighborhood_radius + 1
 
     def _is_row_in(self, arr, mat):
         """
