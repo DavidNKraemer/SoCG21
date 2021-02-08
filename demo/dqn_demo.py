@@ -14,10 +14,11 @@ num_images = 3  # number of images in a state
 starts = np.array([[0, 0]])
 targets = np.array([[5, 5]])
 obstacles = np.array([])
-dist_penalty = 1
-obs_hit_penalty = 0
-agents_hit_penalty = 0
+dist_penalty = 10
+obs_hit_penalty = 1
+agents_hit_penalty = 1
 num_actions = 5
+neighborhood_radius = 3
 
 def reward_fn(agent):
     return agent_reward(
@@ -27,8 +28,8 @@ def reward_fn(agent):
 # DQN
 in_channels = num_images
 out_channels1 = 16
-kernel_size1 = 2
-stride1 = 1
+kernel_size1 = 4
+stride1 = 3
 in_channels2 = 16
 out_channels2 = 32
 kernel_size2 = 2
@@ -38,16 +39,16 @@ out_features3 = 256
 # agent
 batch_size = 256
 buff_maxlen = 100_000
-q_lr = 0.01
+q_lr = 0.1
 discount_gamma = 0.99
 polyak_tau = 0.005
-greedy_eps = 0.1
+greedy_eps = 0.01
 enable_cuda = False  # TODO: get working on CUDA
 grad_clip_radius = None
 
 # training
 num_episodes = 100
-episode_length = 100
+episode_length = 20
 
 
 def tensor(x, cuda=enable_cuda):
@@ -61,7 +62,8 @@ def tensor(x, cuda=enable_cuda):
 if __name__ == "__main__":
 
     env = BoardEnv(starts, targets, obstacles, reward_fn,
-                   agent_type=AgentForDQN)
+                   agent_type=AgentForDQN,
+                   neighborhood_radius=neighborhood_radius)
     example_state_tensor = tensor(env.reset())
 
     q_net = models.ConvolutionalDQN(
@@ -88,6 +90,7 @@ if __name__ == "__main__":
     )
 
     for ep in range(num_episodes):
+        env.reset()
         rewards = []
         for step in range(episode_length):
             state = tensor(env.state)
@@ -97,5 +100,4 @@ if __name__ == "__main__":
                            tensor(next_state),
                            tensor(int(done)).view(1,1))
             rewards.append(reward)
-
         print(f'Episode {ep}: average reward {np.mean(rewards)}')
