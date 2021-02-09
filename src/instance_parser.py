@@ -32,4 +32,4 @@ def parse_instance(index, unzipped_instances):
     """
     # extract the instance of interest
     inst = unzipped_instances[index]
-    return DistributedBoard(inst.start, inst.target, inst.obstacles)
+    return inst.start, inst.target, inst.obstacles
