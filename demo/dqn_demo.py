@@ -11,19 +11,19 @@ from src.board import AgentForDQN
 
 # env
 num_images = 3  # number of images in a state
-starts = np.array([[0, 0], [5, 0]])
-targets = np.array([[3, 0], [3, 0]] )
+starts = np.array([[0, 0], [0, 0]])
+targets = np.array([[0, 0], [0, 0]])
 obstacles = np.array([[]])
-dist_penalty = 1
-obs_hit_penalty = 10
-agents_hit_penalty = 10
+dist_penalty = 10
+obs_hit_penalty = 1
+agents_hit_penalty = 0
 num_actions = 5
 neighborhood_radius = 10
 
 def reward_fn(agent):
     return agent_reward(
         agent, dist_penalty, obs_hit_penalty, agents_hit_penalty
-    ), agents_hit(agent)
+    ), agents_hit(agent), int(np.all(agent.position == agent.target))
 
 # DQN
 in_channels = num_images
@@ -42,12 +42,12 @@ buff_maxlen = 100_000
 q_lr = 0.1
 discount_gamma = 0.99
 polyak_tau = 0.005
-greedy_eps = 0.1
+greedy_eps = 0.01
 enable_cuda = False  # TODO: get working on CUDA
 grad_clip_radius = None
 
 # training
-num_episodes = 10
+num_episodes = 50
 episode_length = 100
 
 
@@ -93,14 +93,17 @@ if __name__ == "__main__":
         env.reset()
         rewards = []
         total_agent_hits = 0
+        successes = 0
         for step in range(episode_length):
             state = tensor(env.state)
             action = learner.sample_action(state)
             next_state, reward, done, _ = env.step(action)
-            reward, hits = reward
+            reward, hits, success = reward
             learner.update(tensor(reward).view(1,1),
                            tensor(next_state),
                            tensor(int(done)).view(1,1))
             rewards.append(reward)
             total_agent_hits += hits
-        print(f'Episode {ep}: average reward {np.mean(rewards)}, total hits {total_agent_hits}')
+            successes += success
+        print(f'Episode {ep}: average reward {np.mean(rewards)}, ',
+              f'total hits {total_agent_hits}, successes {successes}')
