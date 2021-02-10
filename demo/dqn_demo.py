@@ -11,12 +11,12 @@ from src.board import AgentForDQN
 
 # env
 num_images = 3  # number of images in a state
-starts = np.array([[0, 0], [0, 0]])
-targets = np.array([[0, 0], [0, 0]])
+starts = np.array([[0, 5], [0, 0]])
+targets = np.array([[0, 0], [0, 5]])
 obstacles = np.array([[]])
-dist_penalty = 10
-obs_hit_penalty = 1
-agents_hit_penalty = 0
+dist_penalty = 1
+obs_hit_penalty = 10
+agents_hit_penalty = 10
 num_actions = 5
 neighborhood_radius = 10
 

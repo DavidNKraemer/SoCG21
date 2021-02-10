@@ -133,7 +133,7 @@ class Mutator:
     @staticmethod
     def mutate(weights):
         return weights + torch.randn(weights.shape)
-    
+
 
 crossover = Crossover()
 mutator = Mutator()
@@ -324,10 +324,10 @@ class BoardGA(GeneticAlgorithm):
                 _, _, done, _ = self.env.step(direction)
 
             # TODO: eliminate magic numbers
-            policy.fitness = fitness(self.env, 1, 1, 1, 1, 1, 1)  
+            policy.fitness = fitness(self.env, 1, 1, 1, 1, 1, 1)
 
         self.population.sort(key=self.evaluator, reverse=True)
-    
+
     def select(self):
         """
         Currently, just take the top specimens
@@ -362,7 +362,7 @@ class BoardGA(GeneticAlgorithm):
 
     def train(self, n_generations):
         self.initialize()
-        
+
         for gen in range(n_generations):
             print(f"Generation {gen}:", end=" ")
             print("evaluating...", end=" ")
