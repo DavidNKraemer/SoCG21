@@ -129,7 +129,7 @@ def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen):
     dist_pen: float
         Penalty multiplier for distance-to-go.
     obs_hit_pen: float
-        Pentalty multiplier for hitting an obstacle.
+        Penalty multiplier for hitting an obstacle.
     agents_hit_pen: float
         Penalty multiplier for hitting another agent.
 

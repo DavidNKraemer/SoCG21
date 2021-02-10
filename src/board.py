@@ -585,6 +585,10 @@ class LocalStateDQN:
 
         for pixel in neighborhood:
             # add number of agents to each pixel in first image
+
+            # Wes: should the below line be occupied_pixels[tuple(pixel)],
+            # or is it okay as-is? Just double-checking... I do not want to
+            # pre-emptively influence your opinion.
             for agent_id in self.board.active_pixels[tuple(pixel)]:
                 agent = self.board.agents[agent_id]
                 if self.agent.agent_id != agent_id and np.all(
