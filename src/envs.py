@@ -183,7 +183,8 @@ class BoardEnv(gym.Env):
         starts.shape[0] == targets.shape[0]
         starts.shape[1] == targets.shape[1] == obstacles.shape[1] == 2
         """
-        self.board = DistributedBoard(starts, targets, obstacles, **board_kwargs)
+        self.board = DistributedBoard(starts, targets, obstacles,
+                                      **board_kwargs)
 
         self.action_space = gym.spaces.Discrete(5)
         self.observation_space = gym.spaces.Box(
@@ -234,7 +235,7 @@ class BoardEnv(gym.Env):
         self.sim_stats.finished = done
 
         # if action is not the empty string
-        if action != 4:  
+        if action != 4:
             self.sim_stats.dist_trav += 1
 
         if done:

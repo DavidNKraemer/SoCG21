@@ -1,10 +1,9 @@
 import torch
 import numpy as np
-
-
 from src.dqn import agents, envs, models
 from src.envs import BoardEnv, agent_reward
 from src.board import AgentForDQN
+from plot.plot_schedule import plot
 
 
 ### hyperparameters
@@ -47,8 +46,8 @@ enable_cuda = False  # TODO: get working on CUDA
 grad_clip_radius = None
 
 # training
-num_episodes = 100
-episode_length = 20
+num_episodes = 1  #100
+episode_length = 1  #20
 
 
 def tensor(x, cuda=enable_cuda):
@@ -100,4 +99,6 @@ if __name__ == "__main__":
                            tensor(next_state),
                            tensor(int(done)).view(1,1))
             rewards.append(reward)
+            # put plot callback here
+            plot(env)
         print(f'Episode {ep}: average reward {np.mean(rewards)}')
