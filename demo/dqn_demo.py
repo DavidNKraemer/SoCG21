@@ -13,15 +13,17 @@ num_images = 3  # number of images in a state
 starts = np.array([[0, 0]])
 targets = np.array([[5, 5]])
 obstacles = np.array([[3, 3]])
-dist_penalty = 10
-obs_hit_penalty = 1
-agents_hit_penalty = 1
+dist_penalty = 100
+obs_hit_penalty = 3
+agents_hit_penalty = 20
+finish_bonus = 100
+
 num_actions = 5
-neighborhood_radius = 3
+neighborhood_radius = 10
 
 def reward_fn(agent):
     return agent_reward(
-        agent, dist_penalty, obs_hit_penalty, agents_hit_penalty
+        agent, dist_penalty, obs_hit_penalty, agents_hit_penalty, finish_bonus
     )
 
 # DQN
@@ -47,7 +49,7 @@ grad_clip_radius = None
 
 # training
 num_episodes = 100
-episode_length = 20
+episode_length = 50
 
 
 def tensor(x, cuda=enable_cuda):
@@ -103,4 +105,6 @@ if __name__ == "__main__":
             if ep == num_episodes - 1:
                 # put plot callback here
                 plot(env)
+
         print(f'Episode {ep}: average reward {np.mean(rewards)}')
+

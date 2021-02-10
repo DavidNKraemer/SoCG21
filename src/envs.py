@@ -99,7 +99,7 @@ def agents_hit(agent):
 
     return n_collisions
 
-def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen):
+def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen, finish_bonus):
     """
     Return the "instantaneous" reward signal for the specified agent.
 
@@ -118,6 +118,8 @@ def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen):
         Pentalty multiplier for hitting an obstacle.
     agents_hit_pen: float
         Penalty multiplier for hitting another agent.
+    finish_bonus: float
+        Reward for reaching one's target.
 
     Returns
     -------
@@ -128,12 +130,12 @@ def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen):
     -------------
     board.reset() has already been called.
     """
-
     # dist_to_go() returns the l_1 distance between an agent's position
     # and its target, ignoring intermediate obstacles and other agents that
     # might be in the way. See board.py's Agent class.
-    return -(dist_pen*agent.dist_to_go + obs_hit_pen*obstacles_hit(agent)
-            + agents_hit_pen*agents_hit(agent))
+    return finish_bonus*agent.attarget() -(
+        dist_pen*agent.dist_to_go + obs_hit_pen*obstacles_hit(agent)
+        + agents_hit_pen*agents_hit(agent))
 
 # TODO: decide if we need this function
 def board_reward(board, alpha, beta, gamma):
