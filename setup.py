@@ -9,5 +9,6 @@ setup(
         'numpy',
         'torch',
         'gym',
+        'cgshop2021_pyutils',
     ]
 )

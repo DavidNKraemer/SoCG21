@@ -143,7 +143,7 @@ class Agent:
         -------------
         start.shape == target.shape == (2,)
         """
-        self.position = start  # length two numpy array
+        self.position = deepcopy(start)  # length two numpy array
         self.target = target  # length two numpy array
         self.board = board
         self._local_state = LocalState(self)  # state representer class
@@ -292,14 +292,26 @@ class Agent:
         return f"Agent<{id(self)}>(Board<{id(self.board)}>)"
 
 
+class AgentForDQN(Agent):
+    """
+    Same as Agent, but uses LocalStateDQN instead of LocalState.
+    """
+
+    def __init__(self, start, target, board, agent_id):
+
+        super().__init__(start, target, board, agent_id)
+
+        self._local_state = LocalStateDQN(self)
+
+
 class DistributedBoard:
     """
     A distributed state-representation comprised of Agents and some auxilliary,
     global bookeeping.
 
     Fields:
-        -agents: a set of Agents;
-        -obstacles: a set of pixels that are blocked-off and can't be used;
+        -agents: a list of Agents;
+        -obstacles: a list of pixels that are blocked-off and can't be used;
         -active_pixels: defaultdict: pixels -> Set[Agent]. These are pixels
          either occupied by agents or those within agents' local neighborhoods;
         -prev_active_pixels: active_pixels as seen in the previous
@@ -307,7 +319,9 @@ class DistributedBoard:
         -queue: heap used to handle orders in which agents are to move;
         -clock: time-step counter.
     """
-    def __init__(self, starts, targets, obstacles, **kwargs):
+    def __init__(self, starts, targets, obstacles,
+                 agent_type=Agent, neighborhood_radius=1,
+                 **kwargs):
         """
         Construct a DistributedBoard object.
         """
@@ -315,22 +329,24 @@ class DistributedBoard:
         self._targets = targets
         self.obstacles = obstacles  # Set of length-two numpy arrays
         self.max_clock = kwargs.get('max_clock', None)
+        self.agent_type = agent_type
+        self.neighborhood_radius = neighborhood_radius
 
     def _snapshot(self):
         """
         Stash current timestep info.
 
-        Allows recovery of local neighborhood of a given agent from
-        the stashed timestep.
+        Allows recovery of local neighborhood of a given agent from the stashed
+        timestep.
         """
         self.prev_active_pixels = deepcopy(self.active_pixels)
 
     def reset(self):
         """
         Resets the DistributedBoard, useful for reusing the same object for gym
-        Environment
+        environment.
         """
-        self.agents = [Agent(s, t, self, i) \
+        self.agents = [self.agent_type(s, t, self, i) \
                        for i, (s, t) in enumerate(zip(self._starts,
                                                       self._targets))]
         self.queue = []
@@ -342,7 +358,7 @@ class DistributedBoard:
         # values are pointers to Agent objects
         for agent in self.agents:
             # activate pixels
-            for pixel in agent.neighborhood(1):  # change for bigger nbds
+            for pixel in agent.neighborhood(self.neighborhood_radius):
                 self.active_pixels[tuple(pixel)].add(agent.agent_id)
 
             # populate the queue
@@ -420,6 +436,7 @@ def cart_to_imag(origin, position, radius):
 
     return np.full(imag_diff.shape, radius) + imag_diff
 
+
 class LocalState:
     """
     Local state information for one Agent.
@@ -436,6 +453,7 @@ class LocalState:
         """
         self.agent = agent
         self.board = self.agent.board
+        self.neighborhood_radius = self.board.neighborhood_radius
 
     @property
     def state(self):
@@ -457,21 +475,20 @@ class LocalState:
         """
         neighborhood = np.zeros((9, 2))
         square_nbd = neighborhood.view().reshape((3,3,2))
-        
+
         AGENTS, OBSTACLES = 0, 1
 
-
-
         # for every pixel in the neighborhood
-        for index, pixel in enumerate(self.agent.neighborhood(1)):
+        for index, pixel in enumerate(
+            self.agent.neighborhood(self.neighborhood_radius)):
             # check if the pixel is occupied by an obstacle
             neighborhood[index, OBSTACLES] = int(pixel in self.board.obstacles)
 
-            # for every (other) agent in the active_pixels set corresponding to the
-            # pixel
+            # for every (other) agent in the active_pixels set corresponding to
+            # the corresponding pixel
             for agent_id in self.board.active_pixels[tuple(pixel)]:
                 # if the other agent is in the neighborhood, increment that
-                # position pixel 
+                # position pixel
                 if self.agent.agent_id != agent_id:
                     other = self.board.agents[agent_id]
                     i, j = cart_to_imag(self.agent.position, other.position, 1)
@@ -492,7 +509,8 @@ class LocalState:
             self.agent.position, self.agent.target, neighborhood.reshape(-1)
         ]
 
-class NewLocalState:
+
+class LocalStateDQN:
     """
     Local state representation for a single Agent for use in DQN.
 
@@ -500,9 +518,6 @@ class NewLocalState:
     centered on the Agent. Each image in the stack represents a different
     piece of information: the number of neighboring Agents occupying nearby
     pixels, a map of nearby obstacles, direction to the Agent's target, etc.
-
-    The side length in pixels can be arbitrary, but should be odd so that
-    the Agent can occupy the central pixel.
 
     In the case where side length is 3 pixels, an example state is:
 
@@ -523,11 +538,17 @@ class NewLocalState:
     Agent's target.
     """
 
-    def __init__(self, agent, neighborhood_radius=1):
+    def __init__(self, agent):
         self.agent = agent
         self.board = self.agent.board
-        self.neighborhood_radius = neighborhood_radius
-        self.side_length = 2 * neighborhood_radius + 1
+        self.neighborhood_radius = self.board.neighborhood_radius
+        self.side_length = 2 * self.neighborhood_radius + 1
+
+    def _is_row_in(self, arr, mat):
+        """
+        Check if a 1D numpy array is a row in a 2D numpy array.
+        """
+        return np.any([np.array_equal(arr, row) for row in mat])
 
     @property
     def state(self):
@@ -540,8 +561,10 @@ class NewLocalState:
 
         for pixel in neighborhood:
             # add number of agents to each pixel in first image
-            for agent in self.board.active_pixels[tuple(pixel)]:
-                if np.all(agent.position == pixel):
+            for agent_id in self.board.active_pixels[tuple(pixel)]:
+                agent = self.board.agents[agent_id]
+                if self.agent.agent_id != agent_id and np.all(
+                    agent.position == pixel):
                     indices = 0, *(agent.position - offset)
                     state[indices] += 1
 
@@ -551,7 +574,7 @@ class NewLocalState:
 
         # add target direction to third image, projecting onto neighborhood
         # if necessary
-        if self.agent.target in neighborhood:
+        if self._is_row_in(self.agent.target, neighborhood):
             indices = 2, *(self.agent.target - offset)
             state[indices] = 1
         else:
