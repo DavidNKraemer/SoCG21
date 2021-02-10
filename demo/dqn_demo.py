@@ -12,7 +12,7 @@ from plot.plot_schedule import plot
 num_images = 3  # number of images in a state
 starts = np.array([[0, 0]])
 targets = np.array([[5, 5]])
-obstacles = np.array([])
+obstacles = np.array([[3, 3]])
 dist_penalty = 10
 obs_hit_penalty = 1
 agents_hit_penalty = 1
@@ -46,8 +46,8 @@ enable_cuda = False  # TODO: get working on CUDA
 grad_clip_radius = None
 
 # training
-num_episodes = 1  #100
-episode_length = 10  #20
+num_episodes = 100
+episode_length = 20
 
 
 def tensor(x, cuda=enable_cuda):
@@ -99,6 +99,8 @@ if __name__ == "__main__":
                            tensor(next_state),
                            tensor(int(done)).view(1,1))
             rewards.append(reward)
-            # put plot callback here
-            plot(env)
+            # only plot the last episode, after which we hope to be not dumb
+            if ep == num_episodes - 1:
+                # put plot callback here
+                plot(env)
         print(f'Episode {ep}: average reward {np.mean(rewards)}')
