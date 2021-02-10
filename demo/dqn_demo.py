@@ -47,7 +47,7 @@ grad_clip_radius = None
 
 # training
 num_episodes = 1  #100
-episode_length = 1  #20
+episode_length = 10  #20
 
 
 def tensor(x, cuda=enable_cuda):
