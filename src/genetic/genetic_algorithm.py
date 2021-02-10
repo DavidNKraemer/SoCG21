@@ -254,7 +254,7 @@ class BoardGA(GeneticAlgorithm):
             """
             self.model = model
             self.fitness = 0
-            self.actions = [0,1,2,3,4]
+            self.actions = list(range(5))
 
         def __call__(self, agent_state):
             """
@@ -278,6 +278,12 @@ class BoardGA(GeneticAlgorithm):
             """
             """
             return f"GAPolicy({str(self.model)})"
+
+        def save_model(self, path):
+            self.model.save(path)
+
+        def load_model(self, path):
+            self.model.load(path)
 
     def __init__(self, model_factory, **kwargs):
         """
@@ -359,6 +365,17 @@ class BoardGA(GeneticAlgorithm):
         """
         for policy in self.population:
             policy.model.values = self.mutator(policy.model.values)
+
+    def optimal_policy(self):
+        """
+        Returns the current optimal policy of the genetic algorithm.
+
+        Returns
+        -------
+        best: BoardGA.Policy
+            the best available policy determined from the algorithm
+        """
+        return self.population[0]
 
     def train(self, n_generations):
         self.initialize()
