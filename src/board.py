@@ -328,8 +328,11 @@ class DistributedBoard:
         defaultdict: pixels -> Set[int]. These are pixels either occupied by
         agents *or* those within agents' local neighborhoods;
     prev_active_pixels
-        active_pixels as seen in the previous
-        (board-clock) time-step;
+        active_pixels as seen in the previous (board-clock) time-step;
+    occupied_pixels
+        defaultdict: pixels -> Set[int]. These are pixels occupied by agents.
+    prev_occupied_pixels
+        occupied_pixels as seen in the previous (board-clock) time-step;
     queue
         heap used to handle orders in which agents are to move;
     clock
