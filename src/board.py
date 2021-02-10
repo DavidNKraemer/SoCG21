@@ -2,7 +2,7 @@ import numpy as np
 from collections import defaultdict
 from itertools import product
 import heapq
-from copy import deepcopy
+from copy import copy, deepcopy
 
 
 MOVES = {
@@ -193,7 +193,7 @@ class Agent:
             * the agent's position will be in the adjacent tile corresponding
               to the direction
             * the agent will have "exited" from the tiles opposite of the
-              direcction of movement
+              direction of movement
             * the agent will have "entered" the tiles along the direction of
               movement
 
@@ -213,10 +213,19 @@ class Agent:
         # find all of the pixels *leaving* the neighborhood
         old_axis = self.position + get_pixels(-MOVES[direction], 1)
 
+        # remove agent from position
+        self.board.occupied_pixels[tuple(self.position)].remove(self.agent_id)
+        # if an empty set
+        if not self.board.occupied_pixels[tuple(self.position)]:
+            del self.board.occupied_pixels[tuple(self.position)]
+
         # update previous position (needed for agents_hit() in env.py)
-        self.prev_position = self.position
+        self.prev_position = copy(self.position)
         # move the agent's position
         self.position += MOVES[direction]
+
+        # update position in occupied_pixels
+        self.board.occupied_pixels[tuple(self.position)].add(self.agent_id)
 
         new_axis = self.position + get_pixels(MOVES[direction], 1)
 
@@ -309,15 +318,22 @@ class DistributedBoard:
     A distributed state-representation comprised of Agents and some auxilliary,
     global bookeeping.
 
-    Fields:
-        -agents: a list of Agents;
-        -obstacles: a list of pixels that are blocked-off and can't be used;
-        -active_pixels: defaultdict: pixels -> Set[Agent]. These are pixels
-         either occupied by agents or those within agents' local neighborhoods;
-        -prev_active_pixels: active_pixels as seen in the previous
-         (board-clock) time-step;
-        -queue: heap used to handle orders in which agents are to move;
-        -clock: time-step counter.
+    Fields
+    ------
+    agents
+        a list of Agents;
+    obstacles
+        a list of pixels that are blocked-off and can't be used;
+    active_pixels
+        defaultdict: pixels -> Set[int]. These are pixels either occupied by
+        agents *or* those within agents' local neighborhoods;
+    prev_active_pixels
+        active_pixels as seen in the previous
+        (board-clock) time-step;
+    queue
+        heap used to handle orders in which agents are to move;
+    clock
+        time-step counter.
     """
     def __init__(self, starts, targets, obstacles,
                  agent_type=Agent, neighborhood_radius=1,
@@ -340,6 +356,7 @@ class DistributedBoard:
         timestep.
         """
         self.prev_active_pixels = deepcopy(self.active_pixels)
+        self.prev_occupied_pixels = deepcopy(self.occupied_pixels)
 
     def reset(self):
         """
@@ -352,14 +369,21 @@ class DistributedBoard:
         self.queue = []
         self.clock = 0
 
-        # init a dict: length-two numpy arrays -> sets of Agents
+        # init a dict: length-two numpy arrays -> sets of Agent ids
         self.active_pixels = defaultdict(set)
 
-        # values are pointers to Agent objects
+        # init a dict: tuple -> sets of Agent ids
+        self.occupied_pixels = defaultdict(set)
+
+        # values are agent ids
         for agent in self.agents:
             # activate pixels
             for pixel in agent.neighborhood(self.neighborhood_radius):
+                # this is the intended use of active_pixels
                 self.active_pixels[tuple(pixel)].add(agent.agent_id)
+
+            # occupied pixels
+            self.occupied_pixels[tuple(agent.position)].add(agent.agent_id)
 
             # populate the queue
             self.insert(agent)

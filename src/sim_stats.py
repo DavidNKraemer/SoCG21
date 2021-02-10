@@ -46,4 +46,4 @@ class SimStats:
         aggregate_error = 0
         for agent in board.agents:
             aggregate_error += agent.dist_to_go
-        self.error = aggregate_error 
+        self.error = aggregate_error
