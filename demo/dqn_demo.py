@@ -4,6 +4,8 @@ from src.dqn import agents, envs, models
 from src.envs import BoardEnv, agent_reward
 from src.board import AgentForDQN
 from plot.plot_schedule import plot
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 
 ### hyperparameters
@@ -48,8 +50,8 @@ enable_cuda = False  # TODO: get working on CUDA
 grad_clip_radius = None
 
 # training
-num_episodes = 100
-episode_length = 50
+num_episodes = 20
+episode_length = 30
 
 
 def tensor(x, cuda=enable_cuda):
@@ -90,6 +92,7 @@ if __name__ == "__main__":
         grad_clip_radius=grad_clip_radius
     )
 
+    pp = PdfPages('schedule.pdf')
     for ep in range(num_episodes):
         env.reset()
         rewards = []
@@ -104,7 +107,8 @@ if __name__ == "__main__":
             # only plot the last episode, after which we hope to be not dumb
             if ep == num_episodes - 1:
                 # put plot callback here
-                plot(env)
+                plot(env, pad=5)
+                pp.savefig()
 
         print(f'Episode {ep}: average reward {np.mean(rewards)}')
-
+    pp.close()

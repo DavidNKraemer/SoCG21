@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+import numpy as np
 from itertools import product
 
 def pixel(xy, **kwargs):
@@ -19,7 +20,45 @@ def pixel(xy, **kwargs):
     # Rectangle(xy: tuple[float], width, height)
     return Rectangle(xy, 1, 1, **kwargs)
 
-def plot(board_env, xlim=(-10,10), ylim=(-10,10)):
+def padded_bbox(board, pad=5):
+    """
+    Return a tuple: four corners that define the board's axis-aligned bounding
+    box (with some padding), in addition to xlimits and ylimits.
+
+    This is useful for plotting. In particular, it helps us set a "zoom-level"
+    that is appropriate.
+
+    Parameters
+    ----------
+    board: src.board.DistributedBoard
+    pad: int
+    """
+    xmax, ymax, xmin, ymin = -np.inf, -np.inf, np.inf, np.inf
+    # concatenate with *
+    for pixel in [*board._starts, *board._targets]:
+        if pixel[0] > xmax:
+            xmax = pixel[0]
+        if pixel[0] < xmin:
+            xmin = pixel[0]
+
+        if pixel[1] > ymax:
+            ymax = pixel[1]
+        if pixel[1] < ymin:
+            ymin = pixel[1]
+
+    corners = [pixel for pixel in product((xmin, xmax), (ymin, ymax))]
+    # pad corners
+    corners[0] += np.array([-pad, -pad])  # (xmin, ymin)
+    corners[1] += np.array([-pad, pad])  # (xmin, ymax)
+    corners[2] += np.array([pad, -pad])  # (xmax, ymin)
+    corners[3] += np.array([pad, pad])  # (xmax, ymax)
+    # 30 is some arbitrary padding; ensures there are enough ticks if agents
+    # run away on some tangent
+    xlims = (int(xmin-30), int(xmax+30))
+    ylims = (int(ymin-30), int(ymax+30))
+    return corners, xlims, ylims
+
+def plot(board_env, pad=5):
     """
     Plot the current time-step of board_env.
 
@@ -29,10 +68,6 @@ def plot(board_env, xlim=(-10,10), ylim=(-10,10)):
     ----------
     board_env: src.envs.BoardEnv
         Board environment.
-    xlim: tuple[int]
-        Lower and upper x-axis boundaries; default=(-10,10).
-    ylim: tuple[int]
-        Lower and upper y-axis boundaries; default=(-10,10).
     """
     fig, ax = plt.subplots()
     # extract and alias the DistributedBoard
@@ -51,17 +86,15 @@ def plot(board_env, xlim=(-10,10), ylim=(-10,10)):
         ax.add_patch(pixel(obstacle, color='grey', alpha=0.5))
 
     # "plot" invisible pixels to keep plot from zooming in; this does *not*
-    # affect the collision detector
-    for coords in product(xlim, ylim):
-        ax.add_patch(pixel(coords, alpha=0.0))
+    # affect the collision detector or any of our scheduling algorithms
+    corners, xlims, ylims = padded_bbox(board)
+    for corner in corners:
+        ax.add_patch(pixel(corner, alpha=0.0))
 
-    ax.set_xticks([i for i in range(xlim[0], xlim[1]+1)])
-    ax.set_yticks([i for i in range(ylim[0], ylim[1]+1)])
+    ax.set_xticks([i for i in range(xlims[0], xlims[1]+1)])
+    ax.set_yticks([i for i in range(ylims[0], ylims[1]+1)])
     ax.grid(True)
     ax.axis('equal')
-    plt.show()
-
-
-if __name__ == "__main__":
-    # call plot
-    plot()
+    #plt.show()
+    #pp.savefig()
+    return fig
