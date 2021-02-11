@@ -5,46 +5,55 @@ training_sequence = [
         'description': 'one agent, move east',
         'sources': np.array([[0,0]]),
         'targets': np.array([[5,0]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'one agent, move west',
         'sources': np.array([[0,0]]),
         'targets': np.array([[-5,0]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'one agent, move north',
         'sources': np.array([[0,0]]),
         'targets': np.array([[0,5]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'one agent, move south',
         'sources': np.array([[0,0]]),
         'targets': np.array([[0,-5]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'one agent, random target',
         'sources': np.array([[0,0]]),
         'targets': np.random.randint(-10, 10, size=(1,2)),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'one agent, move northwest',
         'sources': np.array([[0,0]]),
         'targets': np.array([[-5,5]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'one agent, move southwest',
         'sources': np.array([[0,0]]),
         'targets': np.array([[-5,-5]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'one agent, move southeast',
         'sources': np.array([[0,0]]),
         'targets': np.array([[5,-5]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'one agent, move northeast',
         'sources': np.array([[0,0]]),
         'targets': np.array([[5,5]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
 #########################
     # introduce obstacles
@@ -109,7 +118,8 @@ training_sequence = [
     {
         'description': 'two agents, move horizontal towards one another',
         'sources': np.array([[0,0], [5,0]]),
-        'targets': np.array([5,0], [0,0]),
+        'targets': np.array([[5,0], [0,0]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'two agents, move horizontal toward one another, one obstacle',
@@ -120,7 +130,8 @@ training_sequence = [
     {
         'description': 'two agents, move vertical towards one another',
         'sources': np.array([[0,0], [0,5]]),
-        'targets': np.array([0,5], [0,0]),
+        'targets': np.array([[0,5], [0,0]]),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'two agents, move vertical toward one another, one obstacle',
@@ -132,6 +143,7 @@ training_sequence = [
         'description': 'two agents, random targets',
         'sources': np.array([[0,0], [5,0]]),
         'targets': np.random.randint(-10, 10, size=(2,2)),
+        'obstacles': np.array([[]]).reshape(-1,2)
     },
     {
         'description': 'two agents, two random obstacles, random targets',
