@@ -149,3 +149,28 @@ class NogradModule:
             Technical representation of the model as a string
         """
         return f"Nograd({repr(self.model)}, size={self.size})"
+
+    def save(self, path):
+        """
+        Saves the underlying torch model to the specified path location
+
+        Params
+        ------
+        path: str or result of os.path.join
+
+        [called for side-effects]
+        """
+        torch.save(self.model.state_dict(), path)
+
+    def load(self, path):
+        """
+        Loads a model saved in the given path into the current NogradModule
+        Params
+        ------
+        path: str or result of os.path.join
+
+        [called for side-effects]
+
+        """
+        self.model.load_state_dict(torch.load(path))
+        self.model.eval()

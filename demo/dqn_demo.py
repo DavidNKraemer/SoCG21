@@ -1,28 +1,31 @@
 import torch
 import numpy as np
-
-
 from src.dqn import agents, envs, models
 from src.envs import BoardEnv, agent_reward, agents_hit
 from src.board import AgentForDQN
+from plot.plot_schedule import plot
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 
 ### hyperparameters
 
 # env
 num_images = 3  # number of images in a state
-starts = np.array([[0, 5], [0, 0]])
-targets = np.array([[0, 0], [0, 5]])
-obstacles = np.array([[]])
-dist_penalty = 1
-obs_hit_penalty = 10
-agents_hit_penalty = 10
+starts = np.array([[0, 0]])
+targets = np.array([[5, 5]])
+obstacles = np.array([[3, 3]])
+dist_penalty = 100
+obs_hit_penalty = 3
+agents_hit_penalty = 20
+finish_bonus = 100
+
 num_actions = 5
 neighborhood_radius = 10
 
 def reward_fn(agent):
     return agent_reward(
-        agent, dist_penalty, obs_hit_penalty, agents_hit_penalty
+        agent, dist_penalty, obs_hit_penalty, agents_hit_penalty, finish_bonus
     ), agents_hit(agent), int(np.all(agent.position == agent.target))
 
 # DQN
@@ -89,6 +92,7 @@ if __name__ == "__main__":
         grad_clip_radius=grad_clip_radius
     )
 
+    pp = PdfPages('schedule.pdf')
     for ep in range(num_episodes):
         env.reset()
         rewards = []
@@ -105,5 +109,14 @@ if __name__ == "__main__":
             rewards.append(reward)
             total_agent_hits += hits
             successes += success
+    
+            # only plot the last episode, after which we hope to be not dumb
+            if ep == num_episodes - 1:
+                # put plot callback here
+                plot(env, pad=5)
+                pp.savefig()
+                
         print(f'Episode {ep}: average reward {np.mean(rewards)}, ',
               f'total hits {total_agent_hits}, successes {successes}')
+
+    pp.close()

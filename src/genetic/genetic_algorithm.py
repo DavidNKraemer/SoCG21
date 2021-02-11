@@ -254,7 +254,7 @@ class BoardGA(GeneticAlgorithm):
             """
             self.model = model
             self.fitness = 0
-            self.actions = [0,1,2,3,4]
+            self.actions = list(range(5))
 
         def __call__(self, agent_state):
             """
@@ -279,6 +279,12 @@ class BoardGA(GeneticAlgorithm):
             """
             return f"GAPolicy({str(self.model)})"
 
+        def save_model(self, path):
+            self.model.save(path)
+
+        def load_model(self, path):
+            self.model.load(path)
+
     def __init__(self, model_factory, **kwargs):
         """
         """
@@ -289,6 +295,16 @@ class BoardGA(GeneticAlgorithm):
         # GA parameters
         self.n_population = kwargs.get('n_population', 10_000)
         self.n_parents = kwargs.get('n_parents', 100)
+
+        self.fitness_args = [
+            kwargs.get('dist_trav_pen',        1),
+            kwargs.get('time_pen',             1),
+            kwargs.get('obs_hit_pen',          1),
+            kwargs.get('agent_collisions_pen', 1),
+            kwargs.get('error_pen',            1),
+            kwargs.get('finish_bonus',         1)
+        ]
+
         # for determining the fitness rankings
         self.evaluator = attrgetter('fitness')
         self.crossover = crossover.amxo
@@ -324,7 +340,7 @@ class BoardGA(GeneticAlgorithm):
                 _, _, done, _ = self.env.step(direction)
 
             # TODO: eliminate magic numbers
-            policy.fitness = fitness(self.env, 1, 1, 1, 1, 1, 1)
+            policy.fitness = fitness(self.env, *self.fitness_args)
 
         self.population.sort(key=self.evaluator, reverse=True)
 
@@ -343,7 +359,9 @@ class BoardGA(GeneticAlgorithm):
             p1, p2 = random.choices(self.parents, k=2)
 
             # "breed" the two parents' models' values
-            weights = self.crossover(p1.model.values, p2.model.values)
+            # weights = self.crossover(p1.model.values, p2.model.values)
+
+            weights = p1.model.values
 
             # construct a model from the "child" weights
             model = self.model_factory()
@@ -360,17 +378,24 @@ class BoardGA(GeneticAlgorithm):
         for policy in self.population:
             policy.model.values = self.mutator(policy.model.values)
 
+    def optimal_policy(self):
+        """
+        Returns the current optimal policy of the genetic algorithm.
+
+        Returns
+        -------
+        best: BoardGA.Policy
+            the best available policy determined from the algorithm
+        """
+        return self.population[0]
+
     def train(self, n_generations):
         self.initialize()
 
         for gen in range(n_generations):
             print(f"Generation {gen}:", end=" ")
-            print("evaluating...", end=" ")
             self.evaluate()
-            print("selecting parents...", end=" ")
             self.select()
-            print("breeding...", end=" ")
+            print(f"{list(map(self.evaluator, self.parents))}")
             self.cross()
-            print("mutating...", end=" ")
-            self.mutate()
-            print("done!")
+            #self.mutate()
