@@ -10,14 +10,14 @@ class DummyEnv:
 
         self.in_channels = in_channels
         self.side_len = side_len
-        
+
         self.state = None
 
     def _random_state(self):
         """
         Generate a random state.
         """
-        
+
         return np.random.normal(
             size=(1, self.in_channels, self.side_len, self.side_len)
         )
@@ -26,7 +26,7 @@ class DummyEnv:
         """
         Initialize the environment state.
         """
-        
+
         self.state = self._random_state()
         return self.state
 

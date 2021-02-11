@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from src.dqn import agents, envs, models
-from src.envs import BoardEnv, agent_reward
+from src.envs import BoardEnv, agent_reward, agents_hit
 from src.board import AgentForDQN
 from plot.plot_schedule import plot
 import matplotlib.pyplot as plt
@@ -26,7 +26,7 @@ neighborhood_radius = 10
 def reward_fn(agent):
     return agent_reward(
         agent, dist_penalty, obs_hit_penalty, agents_hit_penalty, finish_bonus
-    )
+    ), agents_hit(agent), int(np.all(agent.position == agent.target))
 
 # DQN
 in_channels = num_images
@@ -50,8 +50,8 @@ enable_cuda = False  # TODO: get working on CUDA
 grad_clip_radius = None
 
 # training
-num_episodes = 20
-episode_length = 30
+num_episodes = 50
+episode_length = 100
 
 
 def tensor(x, cuda=enable_cuda):
@@ -96,19 +96,27 @@ if __name__ == "__main__":
     for ep in range(num_episodes):
         env.reset()
         rewards = []
+        total_agent_hits = 0
+        successes = 0
         for step in range(episode_length):
             state = tensor(env.state)
             action = learner.sample_action(state)
             next_state, reward, done, _ = env.step(action)
+            reward, hits, success = reward
             learner.update(tensor(reward).view(1,1),
                            tensor(next_state),
                            tensor(int(done)).view(1,1))
             rewards.append(reward)
+            total_agent_hits += hits
+            successes += success
+    
             # only plot the last episode, after which we hope to be not dumb
             if ep == num_episodes - 1:
                 # put plot callback here
                 plot(env, pad=5)
                 pp.savefig()
+                
+        print(f'Episode {ep}: average reward {np.mean(rewards)}, ',
+              f'total hits {total_agent_hits}, successes {successes}')
 
-        print(f'Episode {ep}: average reward {np.mean(rewards)}')
     pp.close()

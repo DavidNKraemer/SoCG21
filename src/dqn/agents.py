@@ -159,20 +159,3 @@ class DoubleDQNAgent:
             self.target_q.eval()
 
         self.enable_cuda(checkpoint['using_cuda'], warn=False)
-
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -133,7 +133,7 @@ class Mutator:
     @staticmethod
     def mutate(weights):
         return weights + torch.randn(weights.shape)
-    
+
 
 crossover = Crossover()
 mutator = Mutator()
@@ -343,7 +343,7 @@ class BoardGA(GeneticAlgorithm):
             policy.fitness = fitness(self.env, *self.fitness_args)
 
         self.population.sort(key=self.evaluator, reverse=True)
-    
+
     def select(self):
         """
         Currently, just take the top specimens
@@ -391,7 +391,7 @@ class BoardGA(GeneticAlgorithm):
 
     def train(self, n_generations):
         self.initialize()
-        
+
         for gen in range(n_generations):
             print(f"Generation {gen}:", end=" ")
             self.evaluate()

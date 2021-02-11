@@ -30,8 +30,9 @@ class Agent:
         vert = sign(self.target[0] - self.pos[0])
         horiz = sign(self.target[1] - self.pos[1])
 
-        moves = [(i,j) for i, j in product([0,vert], [0,horiz]) if abs(i)+abs(j) == 1]
-        
+        moves = [(i,j) for i, j in product([0,vert], [0,horiz])
+                 if abs(i)+abs(j) == 1]
+
         chosen = choice(moves)
         self.pos = (self.pos[0] + chosen[0], self.pos[1] + chosen[1])
 
@@ -55,9 +56,10 @@ class GameBoard:
             min(map(lambda pair: pair[1], chain(self.starts, self.targets))),
             max(map(lambda pair: pair[1], chain(self.starts, self.targets)))
         ]
-        
+
     def reset(self):
-        self.agents = list(map(lambda tup: Agent(*tup), zip(self.starts, self.targets)))
+        self.agents = list(map(lambda tup: Agent(*tup), zip(
+            self.starts, self.targets)))
         self.time = 0
         self.dist = 0
 

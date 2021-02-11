@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 from operator import attrgetter, mul
+from itertools import product
 from src.sim_stats import SimStats
 from src.board import DistributedBoard, LocalState
 
@@ -82,20 +83,33 @@ def agents_hit(agent):
     W = np.array([-1, 0])
     E = np.array([1, 0])
 
-    n_collisions = len(agent.board.active_pixels[tuple(agent.position)]) - 1
-    for direction in [N, S, W, E]:
-        # the set of agents in the pixel to the e.g., North of the agent;
-        # store set of agents in this pixel at previous time-step
-        prev_ids = agent.board.prev_active_pixels[
+    # number of other agents sharing the same pixel as agent
+    n_collisions = len(agent.board.occupied_pixels[tuple(agent.position)]) - 1
+    # DEBUG
+    # print(f"Position: {agent.board.occupied_pixels[tuple(agent.position)]}")
+
+    for direction, other_direction in product([N, S, W, E], [N, S, W, E]):
+        if direction is other_direction:
+            continue
+
+        # DEBUG
+        # print("direction: ", agent.board.prev_active_pixels[
+        #    tuple(agent.prev_position + direction)])
+
+        # store set of agent ids occupying this pixel at previous time-step
+        prev_ids = agent.board.prev_occupied_pixels[
             tuple(agent.prev_position + direction)]
-        for other_direction in [N, S, W, E]:
-            # check all other cardinal directions at the current time-step
-            if other_direction is not direction:
-                # store set of agents in this pixel at current time-step
-                curr_ids = agent.board.active_pixels[
-                    tuple(agent.position + other_direction)]
-                # take intersection of two sets, and increment by cardinality
-                n_collisions += len(curr_ids & prev_ids)
+
+        # DEBUG
+        # print("other_direction: ", agent.board.prev_active_pixels[
+        #    tuple(agent.position + other_direction)])
+
+        # store set of agent ids occupying this pixel at current time-step
+        curr_ids = agent.board.occupied_pixels[
+            tuple(agent.position + other_direction)]
+        # take intersection of two sets, and increment by cardinality
+        # print(f"Intersection: {curr_ids & prev_ids}")
+        n_collisions += len(curr_ids & prev_ids)
 
     return n_collisions
 
@@ -115,7 +129,7 @@ def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen, finish_bonus):
     dist_pen: float
         Penalty multiplier for distance-to-go.
     obs_hit_pen: float
-        Pentalty multiplier for hitting an obstacle.
+        Penalty multiplier for hitting an obstacle.
     agents_hit_pen: float
         Penalty multiplier for hitting another agent.
     finish_bonus: float
