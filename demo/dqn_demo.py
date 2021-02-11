@@ -12,12 +12,12 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 # env
 num_images = 3  # number of images in a state
-starts = np.array([[0, 0], [5, 0]])
-targets = np.array([[5, 5], [0, 5]])
-obstacles = np.array([[]])
-dist_penalty = 10
-obs_hit_penalty = 1
-agents_hit_penalty = 100
+starts = np.array([[0,0], [5,0]])
+targets = np.array([[5,5], [0,5]])
+obstacles = np.array([[3,0], [3,1], [3,2], [3,3], [3,4], [3,5]])
+dist_penalty = 100
+obs_hit_penalty = 50
+agents_hit_penalty = 50
 finish_bonus = 1000
 
 num_actions = 5
@@ -50,7 +50,7 @@ enable_cuda = False  # TODO: get working on CUDA
 grad_clip_radius = None
 
 # training
-num_episodes = 10
+num_episodes = 50
 episode_length = 20
 make_plot = True
 
