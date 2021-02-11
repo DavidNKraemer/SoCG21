@@ -98,4 +98,7 @@ def plot(board_env, pad=5):
     ax.set_yticks([i for i in range(ylims[0], ylims[1]+1)])
     ax.grid(True)
     ax.axis('equal')
+
+    ax.set_title("Time-step " + str(board.clock))
+
     return fig
