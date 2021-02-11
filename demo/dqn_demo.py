@@ -46,13 +46,13 @@ q_lr = 0.1
 discount_gamma = 0.99
 polyak_tau = 0.005
 greedy_eps = 0.01
-enable_cuda = True  # TODO: get working on CUDA
+enable_cuda = False  # TODO: get working on CUDA
 grad_clip_radius = None
 
 # training
-num_episodes = 200
-episode_length = 100
-make_plot = False
+num_episodes = 10
+episode_length = 20
+make_plot = True
 
 
 def tensor(x, cuda=enable_cuda):
@@ -112,13 +112,13 @@ if __name__ == "__main__":
             rewards.append(reward)
             total_agent_hits += hits
             successes += success
-    
+
             # only plot the last episode, after which we hope to be not dumb
             if (ep == num_episodes - 1) and make_plot:
                 # put plot callback here
                 plot(env, pad=5)
                 pp.savefig()
-                
+
         print(f'Episode {ep}: average reward {np.mean(rewards)}, ',
               f'total hits {total_agent_hits}, successes {successes}')
 

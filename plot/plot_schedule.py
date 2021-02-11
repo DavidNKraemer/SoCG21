@@ -68,6 +68,8 @@ def plot(board_env, pad=5):
     ----------
     board_env: src.envs.BoardEnv
         Board environment.
+    pad: int
+        Desired amount of padding.
     """
     fig, ax = plt.subplots()
     # extract and alias the DistributedBoard
@@ -83,7 +85,8 @@ def plot(board_env, pad=5):
 
     # plot obstacles
     for obstacle in board.obstacles:
-        ax.add_patch(pixel(obstacle, color='grey', alpha=0.5))
+        if len(obstacle) > 0:
+            ax.add_patch(pixel(obstacle, color='grey', alpha=0.5))
 
     # "plot" invisible pixels to keep plot from zooming in; this does *not*
     # affect the collision detector or any of our scheduling algorithms
@@ -95,6 +98,4 @@ def plot(board_env, pad=5):
     ax.set_yticks([i for i in range(ylims[0], ylims[1]+1)])
     ax.grid(True)
     ax.axis('equal')
-    #plt.show()
-    #pp.savefig()
     return fig
