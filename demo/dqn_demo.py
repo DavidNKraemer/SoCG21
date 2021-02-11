@@ -12,13 +12,13 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 # env
 num_images = 3  # number of images in a state
-starts = np.array([[0, 0]])
-targets = np.array([[5, 5]])
-obstacles = np.array([[3, 3]])
-dist_penalty = 100
-obs_hit_penalty = 3
-agents_hit_penalty = 20
-finish_bonus = 100
+starts = np.array([[0, 0], [5, 0]])
+targets = np.array([[5, 5], [0, 5]])
+obstacles = np.array([[]])
+dist_penalty = 10
+obs_hit_penalty = 1
+agents_hit_penalty = 100
+finish_bonus = 1000
 
 num_actions = 5
 neighborhood_radius = 10
@@ -30,12 +30,12 @@ def reward_fn(agent):
 
 # DQN
 in_channels = num_images
-out_channels1 = 16
-kernel_size1 = 4
-stride1 = 3
-in_channels2 = 16
-out_channels2 = 32
-kernel_size2 = 2
+out_channels1 = 64
+kernel_size1 = 3
+stride1 = 2
+in_channels2 = 64
+out_channels2 = 128
+kernel_size2 = 4
 stride2 = 2
 out_features3 = 256
 
@@ -46,12 +46,13 @@ q_lr = 0.1
 discount_gamma = 0.99
 polyak_tau = 0.005
 greedy_eps = 0.01
-enable_cuda = False  # TODO: get working on CUDA
+enable_cuda = True  # TODO: get working on CUDA
 grad_clip_radius = None
 
 # training
-num_episodes = 50
+num_episodes = 200
 episode_length = 100
+make_plot = False
 
 
 def tensor(x, cuda=enable_cuda):
@@ -92,7 +93,9 @@ if __name__ == "__main__":
         grad_clip_radius=grad_clip_radius
     )
 
-    pp = PdfPages('schedule.pdf')
+    if make_plot:
+        pp = PdfPages('schedule.pdf')
+
     for ep in range(num_episodes):
         env.reset()
         rewards = []
@@ -111,7 +114,7 @@ if __name__ == "__main__":
             successes += success
     
             # only plot the last episode, after which we hope to be not dumb
-            if ep == num_episodes - 1:
+            if (ep == num_episodes - 1) and make_plot:
                 # put plot callback here
                 plot(env, pad=5)
                 pp.savefig()

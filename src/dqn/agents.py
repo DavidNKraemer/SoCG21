@@ -83,11 +83,9 @@ class DoubleDQNAgent:
 
         self.state = state.to(self.device)
 
-        self.action = np.random.randint(0, self.num_actions) \
-                if np.random.uniform() < self.eps \
-                else self.q
         if np.random.uniform() < self.eps:
-            self.action = torch.randint(high=self.num_actions, size=(1,1))
+            self.action = torch.randint(high=self.num_actions, size=(1,1),
+                                        device=self.device)
         else:
             with torch.no_grad():
                 self.action = self.q(self.state).max(1)[1].view(1,1)
