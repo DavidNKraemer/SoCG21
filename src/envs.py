@@ -56,6 +56,7 @@ def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
 
     return finish_bonus*finished - costs
 
+
 def obstacles_hit(agent):
     """
     Return the number of obstacles with which the specified agent collided
@@ -69,6 +70,7 @@ def obstacles_hit(agent):
     # obstacles don't move. Collision occurred in previous time-step iff
     # agent's position in present time-step is an obstacle pixel.
     return int(agent.position in agent.board.obstacles)
+
 
 def agents_hit(agent):
     """
@@ -98,6 +100,7 @@ def agents_hit(agent):
                 n_collisions += len(curr_ids & prev_ids)
 
     return n_collisions
+
 
 def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen, finish_bonus):
     """
@@ -136,6 +139,7 @@ def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen, finish_bonus):
     return finish_bonus*agent.attarget() -(
         dist_pen*agent.dist_to_go + obs_hit_pen*obstacles_hit(agent)
         + agents_hit_pen*agents_hit(agent))
+
 
 # TODO: decide if we need this function
 def board_reward(board, alpha, beta, gamma):
@@ -193,7 +197,6 @@ class BoardEnv(gym.Env):
             low=-np.inf, high=np.inf, shape=LocalState.shape
         )
         self.reward_fn = reward_fn
-        self.sim_stats = SimStats()
 
     def step(self, action):
         """
@@ -257,6 +260,7 @@ class BoardEnv(gym.Env):
 
         [Called for side-effects]
         """
+        self.sim_stats = SimStats()
         self.board.reset()
         self.state = self.board.peek().state
 
