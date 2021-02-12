@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 import random
 from operator import attrgetter, methodcaller
 from src.envs import fitness, BoardEnv
+from matplotlib.backends.backend_pdf import PdfPages
 
 class GeneticAlgorithm(ABC):
     """
@@ -323,14 +324,7 @@ class BoardGA(GeneticAlgorithm):
         """
         # Perform the simulations
         for policy in self.population:  # ideally, parallelize here
-            self.env.reset()
-            done = self.env.board.isdone()
-
-            while not done:
-                direction = policy(self.env.state)
-                _, _, done, _ = self.env.step(direction)
-
-            policy.fitness = fitness(self.env, *self.fitness_args)
+            policy.fitness = self.play(policy)
 
         self.population.sort(key=self.evaluator, reverse=True)
 
@@ -339,6 +333,29 @@ class BoardGA(GeneticAlgorithm):
         Currently, just take the top specimens
         """
         self.parents = self.population[:self.n_parents]
+
+    def play(self, policy, plotter=None, plot_file='oops_rename_this.pdf'):
+        if plotter:
+            pp = PdfPages(plot_file)
+
+        self.env.reset()
+        done = self.env.board.isdone()
+
+        while not done:
+            if plotter:
+                plotter(self.env)
+                pp.savefig()
+
+            direction = policy(self.env.state)
+            _, _, done, _ = self.env.step(direction)
+
+        if plotter:
+            plotter(self.env)
+            pp.savefig()
+            pp.close()
+
+        return fitness(self.env, *self.fitness_args)
+
 
     def cross(self):
         """
