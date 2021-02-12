@@ -1,5 +1,38 @@
 import numpy as np
 
+
+def training_plan(sequence, myopia_rate, len_epoch):
+    """
+    Training plan where the sequence of problems are repeated in "epochs".
+    During the kth epoch, the same subsequence of problems are available for
+    training. On a given step inside of the epoch, the kth item in the sequence
+    is returned with probability `myopia_rate`. The probability of drawing from
+    {0,...,k-1} is 1-`myopia_rate`.
+
+    Some examples:
+    epoch = 0
+    weights = [1.]
+
+    epoch = 1
+    weights = [(1-myopia_rate), myopia_rate]
+
+    epoch = 2
+    weights = [(1-myopia_rate)**2, (1-myopia_rate) * myopia_rate, myopia_rate]
+
+    This returns a generator of length len(sequence) * len_epoch
+    """
+    indices = np.arange(len(sequence))
+    weights = np.ones(len(sequence))
+
+    for k in range(len(sequence)):
+        if k > 0:
+            weights[k] = myopia_rate
+            weights[:k] *= (1. - myopia_rate)
+        for _ in range(len_epoch):
+            index = np.random.choice(indices[:k+1], p=weights[:k+1])
+            yield tuple(sequence[index].values())
+
+
 training_sequence = [
     {
         'description': 'one agent, move east',
@@ -152,3 +185,7 @@ training_sequence = [
         'obstacles': np.random.randint(-10, 10, size=(2,2)),
     },
 ]
+
+for tup in training_plan(training_sequence, 0.9, 1):
+    #print(tup)
+    continue
