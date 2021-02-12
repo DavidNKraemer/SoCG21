@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 import sys
+from functools import partial
+import pdb
 
 
 import numpy as np
@@ -14,7 +16,7 @@ from src.genetic.utils import NogradModule
 from src.genetic.genetic_algorithm import BoardGA
 from src.board import LocalState
 
-from training_sequence import training_sequence
+from training_sequence import training_sequence, training_plan
 
 
 # Argument parsing setup
@@ -29,31 +31,31 @@ parser = argparse.ArgumentParser(
     description='Main genetic algorithm experiment script'
 )
 
-parser.add_argument('--out_dir', type=str, default=default_dir)
-parser.add_argument('--n_population', type=int, default=200)
-parser.add_argument('--n_parents', type=int, default=10)
-parser.add_argument('--n_generations', type=int, default=1000)
-parser.add_argument('--max_clock', type=int, default=30)
+parser.add_argument(      '--out_dir', type=str,   default=default_dir)
+parser.add_argument( '--n_population', type=int,   default=100)
+parser.add_argument(    '--n_parents', type=int,   default=20)
+parser.add_argument('--n_generations', type=int,   default=6)
+parser.add_argument(    '--max_clock', type=int,   default=50)
+parser.add_argument(    '--len_epoch', type=int,   default=10)
+parser.add_argument(       '--myopia', type=float, default=0.9)
 
 
 # Policy model factory
 def model_builder(in_features, out_features):
     width = 64
-    def builder():
-        model = NogradModule(nn.Sequential(
-            nn.Linear(in_features, width),
-            nn.ReLU(),
-            nn.Linear(width, width),
-            nn.ReLU(),
-            nn.Linear(width, out_features),
-            nn.Softmax(dim=0)
-        ))
-        model.values = torch.zeros(model.size)
+    model = NogradModule(nn.Sequential(
+        nn.Linear(in_features, width),
+        nn.ReLU(),
+        nn.Linear(width, width),
+        nn.ReLU(),
+        nn.Linear(width, out_features),
+        nn.Softmax(dim=0)
+    ))
+    model.values = torch.zeros(model.size)
 
-        return model
-    return builder
+    return model
 
-builder = model_builder(LocalState.shape[0], 5)
+builder = partial(model_builder, LocalState.shape[0], 5)
 
 
 
@@ -64,7 +66,9 @@ if __name__ == '__main__':
         'n_population': args.n_population,
         'n_parents': args.n_parents,
         'max_clock': args.max_clock,
-        'n_generations': args.n_generations
+        'n_generations': args.n_generations,
+        'len_epoch': args.len_epoch,
+        'myopia': args.myopia,
     }
 
     # set up output directory
@@ -72,18 +76,20 @@ if __name__ == '__main__':
 
     ga = BoardGA(builder, **kwargs)
 
-    for i, training_dict in enumerate(training_sequence):
-        sources = training_dict['sources']
-        targets = training_dict['targets']
-        obstacles = training_dict['obstacles']
+    plan = training_plan(training_sequence, kwargs['myopia'], kwargs['len_epoch'])
 
-        print(f"Problem {i}: {training_dict['description']}")
+    for i, (description, sources, targets, obstacles) in enumerate(plan):
+        print(f"Problem {i}: {description}.", end=" ")
 
         ga.set_env(sources, targets, obstacles, max_clock=kwargs['max_clock']) 
-
         ga.train(kwargs['n_generations'])
 
+        # evaluate the last generation
+        ga.evaluate()  
+        pdb.set_trace()
+
         best = ga.optimal_policy()
+        print(f"fitness: {best.fitness}.", end=" ")
         print("saving...", end=" ")
-        best.save(args.out_dir)
+        best.save_model(os.path.join(args.out_dir, f'problem_{i}.model'))
         print("done!")
