@@ -38,8 +38,14 @@ def _unzip_sort():
     """
     Unzip all instances, and return a list of instances in sorted order
     (increasing w.r.t. difficulty).
+
+    We sort lexicographically: first, by number of robots, then by number of
+    obstacles.
     """
     instances = _unzip_instances()
+    # sort by secondary criterion first; yes, you read the correctly!
+    instances.sort(key=lambda inst: len(inst.obstacles))
+    # sort by primary criterion second; yes, your occipital lobe is okay
     instances.sort(key=lambda inst: inst.number_of_robots)
     return instances
 
