@@ -513,24 +513,13 @@ class LocalState:
 
             # for every (other) agent in the active_pixels set corresponding to
             # the corresponding pixel
-            for agent_id in self.board.active_pixels[tuple(pixel)]:
+            for agent_id in self.board.occupied_pixels[tuple(pixel)]:
                 # if the other agent is in the neighborhood, increment that
                 # position pixel
                 if self.agent.agent_id != agent_id:
                     other = self.board.agents[agent_id]
                     i, j = cart_to_imag(self.agent.position, other.position, 1)
                     square_nbd[i, j, AGENTS] += 1
-
-        # update neighborhood
-        # might need to update the below -- perhaps attach to Agent.move()?
-        # it probably belongs to either Agent or Board
-        # agent_positions = defaultdict(int)
-        # for agent in self.board.agents:
-        #     agent_positions[tuple(agent.position)] += 1
-
-        # # search the neighborhood for agents and obstacles
-        # for index, pixel in enumerate(self.agent.neighborhood(1)):
-        #     neighborhood[index, 0] = agent_positions[tuple(pixel)]
 
         return np.r_[
             self.agent.position, self.agent.target, neighborhood.reshape(-1)
