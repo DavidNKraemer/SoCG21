@@ -1,0 +1,32 @@
+### Configuration for DoubleDQNAgent
+# NOTE: these values should be fixed across all training sessions
+
+
+env_config:
+  num_images: 3  # number of images in state
+  num_actions: 5
+  neighborhood_radius: 10
+  dist_penalty: 300
+  obs_hit_penalty: 50
+  agents_hit_penalty: 50
+  finish_bonus: 1000
+
+network_config:
+  out_channels1: 64
+  kernel_size1: 3
+  stride1: 2
+  in_channels2: 64
+  out_channels2: 128
+  kernel_size2: 4
+  stride2: 2
+  out_features3: 256
+
+agent_config:
+  batch_size: 256
+  buff_maxlen: 100_000
+  q_lr: 0.1
+  discount_gamma: 0.99
+  polyak_tau: 0.005
+  greedy_eps: 0.01
+  enable_cuda: False
+  grad_clip_radius: Null

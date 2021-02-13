@@ -2,6 +2,7 @@
 **schedule.pdf
 **.pdf
 **.pt
+data/dqn/*
 
 # Byte-compiled / optimized / DLL files
 **__pycache__/

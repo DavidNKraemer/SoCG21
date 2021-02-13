@@ -9,7 +9,6 @@ dqn_trainer_config = 'dqn_config.yml'
 # training specification
 num_episodes = 10
 episode_length = 50
-make_plot = True
 plot_filename = 'plot.pdf'
 
 # checkpointing info
