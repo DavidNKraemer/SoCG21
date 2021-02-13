@@ -1,11 +1,12 @@
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
 from src.dqn import agents, envs, models
 from src.envs import BoardEnv, agent_reward, agents_hit
 from src.board import AgentForDQN
 from plot.plot_schedule import plot
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 
 
 ### hyperparameters
@@ -46,13 +47,15 @@ q_lr = 0.1
 discount_gamma = 0.99
 polyak_tau = 0.005
 greedy_eps = 0.01
-enable_cuda = False  # TODO: get working on CUDA
+enable_cuda = False
 grad_clip_radius = None
 
 # training
-num_episodes = 200
-episode_length = 40
+num_episodes = 10
+episode_length = 50
 make_plot = True
+checkpoint_filename = 'dqn_checkpoint.pt'
+plot_filename = 'dqn_plot.pdf'
 
 
 def tensor(x, cuda=enable_cuda):
@@ -94,7 +97,7 @@ if __name__ == "__main__":
     )
 
     if make_plot:
-        pp = PdfPages('schedule.pdf')
+        pp = PdfPages(plot_filename)
 
     for ep in range(num_episodes):
         env.reset()
@@ -102,7 +105,7 @@ if __name__ == "__main__":
         total_agent_hits = 0
         successes = 0
         clock = env.board.clock
-        clock_ticked = False
+        clock_ticked = False  # TODO: what is this for?
         for step in range(episode_length):
             state = tensor(env.state)
             action = learner.sample_action(state)
@@ -128,3 +131,5 @@ if __name__ == "__main__":
               f'total hits {total_agent_hits}, successes {successes}')
 
     pp.close()
+
+    learner.save_checkpoint(checkpoint_filename)

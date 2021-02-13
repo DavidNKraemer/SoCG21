@@ -10,5 +10,6 @@ setup(
         'torch',
         'gym',
         'cgshop2021_pyutils',
+        'pyyaml',
     ]
 )
