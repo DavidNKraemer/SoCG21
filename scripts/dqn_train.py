@@ -8,22 +8,6 @@ from shutil import copyfile
 import src.dqn.trainer as trainer
 
 
-# # logging info
-# data_dir = 'data/dqn'
-# 
-# # trainer specification
-# dqn_trainer_config = 'scripts/dqn_config.yml'
-# 
-# # training specification
-# num_episodes = 5
-# episode_length = 10
-# 
-# # checkpointing info
-# load_checkpoint = False
-# checkpoint_filename = 'checkpoint.pt'
-# continue_training = True
-
-
 parser = argparse.ArgumentParser(
     'python dqn_train.py'
 )
