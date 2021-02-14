@@ -7,7 +7,7 @@ import src.dqn.trainer as trainer
 dqn_trainer_config = 'dqn_config.yml'
 
 # training specification
-num_episodes = 10
+num_episodes = 100
 episode_length = 50
 plot_filename = 'plot.pdf'
 
@@ -17,10 +17,9 @@ continue_training = True
 
 # environment specification
 starts = np.array([[0, 0]])
-targets = np.array([[5, 5]])
-obstacles = np.array([[]])
+targets = np.array([[6, 0]])
+obstacles = np.array([[3, i] for i in range(-3,4)])
 env_tuple = (starts, targets, obstacles)
-
 
 
 if __name__ == '__main__':

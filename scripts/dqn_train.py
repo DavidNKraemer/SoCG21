@@ -6,6 +6,7 @@ import argparse
 from shutil import copyfile
 
 import src.dqn.trainer as trainer
+from src.instance_parser import unzip_sort_parse
 
 
 # This is the function that gets all the env_tuples to train on
@@ -94,8 +95,8 @@ if __name__ == '__main__':
     load_checkpoint = args.load_checkpoint
     continue_training = args.continue_training
 
-
-    env_tuples = get_env_tuples()
+    #env_tuples = get_env_tuples()
+    env_tuples = unzip_sort_parse()
 
     dqn_trainer = trainer.DQNTrainer(dqn_trainer_config)
     if load_checkpoint is not None:
