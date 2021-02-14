@@ -8,6 +8,24 @@ from shutil import copyfile
 import src.dqn.trainer as trainer
 
 
+# This is the function that gets all the env_tuples to train on
+# NOTE: it is a very important function
+def get_env_tuples():
+    """
+    Return a list of env_tuples to be trained on.
+    """
+
+    from scripts.training_sequence import training_plan, training_sequence
+
+    myopia_rate = 0.5
+    len_epoch = 1
+
+    env_tuples = list(elem[1:] for elem in training_plan(
+        training_sequence, myopia_rate, len_epoch))
+
+    return env_tuples
+
+
 parser = argparse.ArgumentParser(
     'python dqn_train.py'
 )
@@ -61,22 +79,10 @@ def create_data_dir(root_dir_name):
     """
 
     dir_path_name = os.path.join(root_dir_name,
-            datetime.datetime.now().strftime('%H-%M-%S_%Y-%m-%d'))
+            datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
     os.mkdir(dir_path_name)
 
     return dir_path_name
-
-def get_env_tuples():
-    """
-    Return a list of env_tuples to be trained on.
-    """
-
-    starts = np.array([[0, 0]])
-    targets = np.array([[5, 5]])
-    obstacles = np.array([[]])
-    env_tuple = (starts, targets, obstacles)
-
-    return [env_tuple]
 
 
 if __name__ == '__main__':

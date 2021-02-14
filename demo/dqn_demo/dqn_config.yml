@@ -24,7 +24,7 @@ network_config:
 agent_config:
   batch_size: 256
   buff_maxlen: 100_000
-  q_lr: 0.1
+  q_lr: 0.01
   discount_gamma: 0.99
   polyak_tau: 0.005
   greedy_eps: 0.01

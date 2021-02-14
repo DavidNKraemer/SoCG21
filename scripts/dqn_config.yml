@@ -5,7 +5,7 @@
 env_config:
   num_images: 3  # number of images in state
   num_actions: 5
-  neighborhood_radius: 10
+  neighborhood_radius: 12
   dist_penalty: 300
   obs_hit_penalty: 50
   agents_hit_penalty: 50
@@ -23,10 +23,10 @@ network_config:
 
 agent_config:
   batch_size: 256
-  buff_maxlen: 100_000
-  q_lr: 0.1
+  buff_maxlen: 1_000_000
+  q_lr: 0.01
   discount_gamma: 0.99
   polyak_tau: 0.005
   greedy_eps: 0.01
-  enable_cuda: False
+  enable_cuda: True
   grad_clip_radius: Null
