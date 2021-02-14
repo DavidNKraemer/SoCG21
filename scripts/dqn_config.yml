@@ -28,5 +28,5 @@ agent_config:
   discount_gamma: 0.99
   polyak_tau: 0.005
   greedy_eps: 0.01
-  enable_cuda: False  #True
+  enable_cuda: True
   grad_clip_radius: Null
