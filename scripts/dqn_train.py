@@ -6,6 +6,11 @@ import argparse
 from shutil import copyfile
 
 import src.dqn.trainer as trainer
+from scripts.training_sequence import training_plan, basic_training
+
+training_seq = basic_training['obstacles']
+myopia_rate = 1
+len_epoch = 1
 
 
 # This is the function that gets all the env_tuples to train on
@@ -15,13 +20,8 @@ def get_env_tuples():
     Return a list of env_tuples to be trained on.
     """
 
-    from scripts.training_sequence import training_plan, training_sequence
-
-    myopia_rate = 0.5
-    len_epoch = 1
-
     env_tuples = list(elem[1:] for elem in training_plan(
-        training_sequence, myopia_rate, len_epoch))
+        training_seq, myopia_rate, len_epoch))
 
     return env_tuples
 
@@ -103,6 +103,7 @@ if __name__ == '__main__':
 
     for i, env_tuple in enumerate(env_tuples):
 
+        print(f'Training run {i} commencing...')
         dqn_trainer.train(num_episodes, episode_length, env_tuple)
 
         print(f'Training run {i} completed, saving checkpoint...')
@@ -116,3 +117,4 @@ if __name__ == '__main__':
         print('Preparing plot...')
         dqn_trainer.plot(episode_length,
                          os.path.join(data_dir_name, plot_filename))
+        print('Plotting complete.')

@@ -174,7 +174,8 @@ class Agent:
         the way! We return only the l_1 distance between two pixels. Nothing
         fancy is done w.r.t. obstacle avoidance.
         """
-        return np.linalg.norm(self.target - self.position, ord=1)
+        # return np.linalg.norm(self.target - self.position, ord=1)
+        return np.linalg.norm(self.target - self.position, ord=2)**2
 
     def attarget(self):
         """

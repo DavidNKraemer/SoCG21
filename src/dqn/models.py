@@ -16,7 +16,7 @@ class ConvolutionalDQN(nn.Module):
                  example_state_tensor,  # example state converted to torch tensor
                  out_channels1=16, kernel_size1=3, stride1=2,
                  in_channels2=16, out_channels2=32, kernel_size2=2, stride2=1,
-                 out_features3=256):
+                 out_features3=256, padding=1):
 
         super().__init__()
 

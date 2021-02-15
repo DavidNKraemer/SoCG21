@@ -105,6 +105,7 @@ class DQNTrainer:
 
         self.agent.load_checkpoint(checkpoint_filename,
                                    continue_training=continue_training)
+        self.agent.change_lr(self.config['agent_config']['q_lr'])
 
     def save_checkpoint(self, checkpoint_filename):
         """

@@ -49,6 +49,14 @@ class DoubleDQNAgent:
     def cuda_enabled(self):
         return self.__cuda_enabled
 
+    def change_lr(self, lr):
+        """
+        Change learning rate of optimizer.
+        """
+
+        for g in self.q_optim.param_groups:
+            g['lr'] = lr
+
     def enable_cuda(self, enable_cuda=True, warn=True):
         """
         Enable or disable CUDA and update models and actions.
