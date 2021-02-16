@@ -27,6 +27,6 @@ agent_config:
   q_lr: 0.00001
   discount_gamma: 0.99
   polyak_tau: 0.005
-  greedy_eps: 0.1
+  greedy_eps: 0.3
   enable_cuda: False
   grad_clip_radius: 1.0

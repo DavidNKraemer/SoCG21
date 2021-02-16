@@ -141,6 +141,29 @@ class DQNTrainer:
 
             print(f'Episode {ep}: average reward {np.mean(rewards)}')
 
+    def solve(self, episode_length=10_000, env_tuple=None):
+        """
+        Run an instance for a set length of time.
+
+        This method is very similar to self.train above, except it does not
+        learn.
+        """
+
+        if env_tuple is not None:
+            self._create_env(env_tuple)
+        assert self.env is not None, 'Specify an env_tuple.'
+
+        self.env.reset()
+        rewards = []
+        for step in range(episode_length):
+            state = self._tensor(self.env.state)
+            action = self.agent.sample_action(state)
+            _, reward, done, _ = self.env.step(action)
+            rewards.append(reward)
+
+        print(f'Average reward {np.mean(rewards)}')
+
+
     def plot(self, episode_length, plot_filename, env_tuple=None):
         """
         Carry out an episode without training and generate a plot.
@@ -173,3 +196,13 @@ class DQNTrainer:
                 pp.savefig()
 
         pp.close()
+
+    def write_solution(self, filename):
+        """
+        Write the current solution stored in the BoardEnv out to a zip file.
+        """
+
+        pass
+
+        # with SolutionZipWriter(filename) as szw:
+        #     szw.add_solution(self.env.solution)

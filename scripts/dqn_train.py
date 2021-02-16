@@ -8,7 +8,7 @@ from shutil import copyfile
 import src.dqn.trainer as trainer
 from scripts.training_sequence import training_plan, basic_training
 
-training_seq = basic_training['obstacles']
+training_seq = basic_training['multiple_agents'] + basic_training['tricky']
 myopia_rate = 1
 len_epoch = 1
 
@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
     dqn_trainer = trainer.DQNTrainer(dqn_trainer_config)
     if load_checkpoint is not None:
-        dqn_trainer.load_checkpoint(load_checkpoint)
+        dqn_trainer.load_checkpoint(load_checkpoint, continue_training)
 
     for i, env_tuple in enumerate(env_tuples):
 

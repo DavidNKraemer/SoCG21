@@ -1,5 +1,8 @@
+import numpy as np
 import cgshop2021_pyutils as socg
+
 from src.board import DistributedBoard
+
 
 def _unzip_instances():
     """
@@ -32,7 +35,10 @@ def parse_instance(index, unzipped_instances):
     """
     # extract the instance of interest
     inst = unzipped_instances[index]
-    return inst.start, inst.target, inst.obstacles
+    starts = np.array(inst.start).reshape(-1, 2)
+    targets = np.array(inst.target).reshape(-1, 2)
+    obstacles = np.array(inst.obstacles).reshape(-1, 2)
+    return starts, targets, obstacles
 
 def _unzip_sort():
     """
