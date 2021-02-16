@@ -65,6 +65,7 @@ class DQNTrainer:
 
         dummy_env = BoardEnv(
             np.array([[0, 0]]), np.array([[0, 0]]), np.array([[]]),
+            None,
             lambda x: 1, agent_type=AgentForDQN,
             neighborhood_radius=self.config['env_config']['neighborhood_radius']
         )
@@ -197,12 +198,9 @@ class DQNTrainer:
 
         pp.close()
 
-    def write_solution(self, filename):
+    def get_solution(self):
         """
-        Write the current solution stored in the BoardEnv out to a zip file.
+        Get the current solution.
         """
 
-        pass
-
-        # with SolutionZipWriter(filename) as szw:
-        #     szw.add_solution(self.env.solution)
+        return self.env.board.solution

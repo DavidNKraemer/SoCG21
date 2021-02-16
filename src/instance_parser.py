@@ -39,7 +39,7 @@ def parse_instance(index, unzipped_instances):
     starts = np.array(inst.start).reshape(-1, 2)
     targets = np.array(inst.target).reshape(-1, 2)
     obstacles = np.array(inst.obstacles).reshape(-1, 2)
-    return starts, targets, obstacles
+    return starts, targets, obstacles, inst
 
 def _unzip_sort():
     """
