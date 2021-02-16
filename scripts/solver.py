@@ -4,15 +4,12 @@ import src.dqn.trainer as trainer
 from src.instance_parser import _unzip_instances, unzip_sort_parse
 
 
-def instances_to_tuples(instances):
+def instances_to_tuples():
     """
-    Takes a list of instances and converts them to env_tuples of the form
-        (starts, targets, obstacles)
+    Returns a tuple (starts, targets, obstacles, instance) for each instance
+    in official_instances.zip.
     """
-    
-    # TODO
-    # NOTE: does src.instance_parser.unsip_sort_parse() already do this?
-    pass
+    return unzip_sort_parse()
 
 # Solution zip filename
 solution_zip_filename = 'solution.zip'
