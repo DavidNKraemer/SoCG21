@@ -3,14 +3,6 @@ import time
 import src.dqn.trainer as trainer
 from src.instance_parser import _unzip_instances, unzip_sort_parse
 
-
-def instances_to_tuples():
-    """
-    Returns a tuple (starts, targets, obstacles, instance) for each instance
-    in official_instances.zip.
-    """
-    return unzip_sort_parse()
-
 # Solution zip filename
 solution_zip_filename = 'solution.zip'
 
@@ -25,8 +17,7 @@ max_solution_timesteps = 1000
 if __name__ == '__main__':
 
     # get the instances
-    instances = _unzip_instances()
-    env_tuples = unzip_sort_parse() # instances_to_tuples(instances)
+    env_tuples = unzip_sort_parse()
 
     # import pdb; pdb.set_trace()
 
