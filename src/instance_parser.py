@@ -2,6 +2,7 @@ import numpy as np
 import cgshop2021_pyutils as socg
 
 from src.board import DistributedBoard
+import numpy as np
 
 
 def _unzip_instances():
@@ -58,7 +59,7 @@ def _unzip_sort():
 def unzip_sort_parse():
     """
     Unzip all instances, sort them w.r.t. difficulty, and return as a list of
-    (_starts, _targets, obstacles) tuples.
+    (_starts, _targets, obstacles) numpy arrays, together with an instance.
     """
     instances = _unzip_sort()
     return [parse_instance(i, instances) for i in range(len(instances))]

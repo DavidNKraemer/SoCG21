@@ -4,6 +4,7 @@ from operator import attrgetter, mul
 from itertools import product
 from src.sim_stats import SimStats
 from src.board import DistributedBoard, LocalState
+from cgshop2021_pyutils import Direction, Solution, SolutionStep
 
 
 def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
@@ -187,7 +188,8 @@ def board_reward(board, alpha, beta, gamma):
 
 class BoardEnv(gym.Env):
 
-    def __init__(self, starts, targets, obstacles, reward_fn, **board_kwargs):
+    def __init__(self, starts, targets, obstacles, reward_fn, instance,
+                 **board_kwargs):
         """
         Params
         ------
@@ -203,7 +205,7 @@ class BoardEnv(gym.Env):
         starts.shape[0] == targets.shape[0]
         starts.shape[1] == targets.shape[1] == obstacles.shape[1] == 2
         """
-        self.board = DistributedBoard(starts, targets, obstacles,
+        self.board = DistributedBoard(starts, targets, obstacles, instance,
                                       **board_kwargs)
 
         self.action_space = gym.spaces.Discrete(5)
@@ -211,6 +213,7 @@ class BoardEnv(gym.Env):
             low=-np.inf, high=np.inf, shape=LocalState.shape
         )
         self.reward_fn = reward_fn
+        self.instance = instance
 
     def step(self, action):
         """
@@ -241,6 +244,7 @@ class BoardEnv(gym.Env):
         """
         # please don't re-order
         actions = ['E', 'W', 'N', 'S', '']
+        directions = [Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH]
 
         # pop the next agent, move according to the action, and re-insert
         agent = self.board.pop()
@@ -248,13 +252,16 @@ class BoardEnv(gym.Env):
         self.board.insert(agent)
         done = self.board.isdone()
 
+        if actions[action] is not '':
+            self.board.step[agent.agent_id] = directions[action]
+
         # update sim_stats
         self.sim_stats.agent_collisions += agents_hit(agent)
         self.sim_stats.obs_hit += obstacles_hit(agent)
         self.sim_stats.finished = done
 
         # if action is not the empty string
-        if action != 4:
+        if actions[action] is not '':
             self.sim_stats.dist_trav += 1
 
         if done:
@@ -277,6 +284,7 @@ class BoardEnv(gym.Env):
         self.sim_stats = SimStats()
         self.board.reset()
         self.state = self.board.peek().state
+        self.solution = Solution(self.instance)
 
         return self.state
 

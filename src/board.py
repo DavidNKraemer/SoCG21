@@ -3,6 +3,7 @@ from collections import defaultdict
 from itertools import product
 import heapq
 from copy import copy, deepcopy
+from cgshop2021_pyutils import Solution, SolutionStep
 
 
 MOVES = {
@@ -339,7 +340,7 @@ class DistributedBoard:
     clock
         time-step counter.
     """
-    def __init__(self, starts, targets, obstacles,
+    def __init__(self, starts, targets, obstacles, instance,
                  agent_type=Agent, neighborhood_radius=1,
                  **kwargs):
         """
@@ -351,6 +352,7 @@ class DistributedBoard:
         self.max_clock = kwargs.get('max_clock', None)
         self.agent_type = agent_type
         self.neighborhood_radius = neighborhood_radius
+        self.instance = instance
 
     def _snapshot(self):
         """
@@ -394,6 +396,9 @@ class DistributedBoard:
 
         self._snapshot()
 
+        self.solution = Solution(self.instance)
+        self.step = SolutionStep()
+
     def pop(self):
         """
         Pops the next agent from the queue and returns it. During processing,
@@ -409,7 +414,10 @@ class DistributedBoard:
         """
         agent = heapq.heappop(self.queue)
         self._snapshot()
-        self.clock = max(agent.local_clock, self.clock)
+        if agent.local_clock > self.clock:
+            self.clock = agent.local_clock
+            self.solution.add_step(self.step)
+            self.step = SolutionStep()
         agent.local_clock = self.clock
 
         return agent
@@ -421,7 +429,10 @@ class DistributedBoard:
         """
         agent = self.queue[0]
         self._snapshot()
-        self.clock = max(agent.local_clock, self.clock)
+        if agent.local_clock > self.clock:
+            self.clock = agent.local_clock
+            self.solution.add_step(self.step)
+            self.step = SolutionStep()
         agent.local_clock = self.clock
 
         return agent

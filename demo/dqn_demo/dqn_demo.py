@@ -33,7 +33,7 @@ if __name__ == '__main__':
     del dqn_trainer1
 
     dqn_trainer2 = trainer.DQNTrainer(dqn_trainer_config)
-    print('Loading checkpoing...')
+    print('Loading checkpoint...')
     dqn_trainer2.load_checkpoint(checkpoint_filename,
                                  continue_training)
     print('Resuming training...')
