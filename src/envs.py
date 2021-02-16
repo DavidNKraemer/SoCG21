@@ -205,7 +205,7 @@ class BoardEnv(gym.Env):
         starts.shape[0] == targets.shape[0]
         starts.shape[1] == targets.shape[1] == obstacles.shape[1] == 2
         """
-        self.board = DistributedBoard(starts, targets, obstacles,
+        self.board = DistributedBoard(starts, targets, obstacles, instance,
                                       **board_kwargs)
 
         self.action_space = gym.spaces.Discrete(5)
