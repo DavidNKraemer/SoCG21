@@ -12,13 +12,14 @@ class DummyEnv:
         self.side_len = side_len
 
         self.state = None
+        self.seed = 0
 
     def _random_state(self):
         """
         Generate a random state.
         """
 
-        return np.random.normal(
+        return self.rng.normal(
             size=(1, self.in_channels, self.side_len, self.side_len)
         )
 
@@ -28,6 +29,8 @@ class DummyEnv:
         """
 
         self.state = self._random_state()
+        self.rng = np.random.default_rng(self.seed)
+
         return self.state
 
     def step(self, action):
@@ -36,7 +39,7 @@ class DummyEnv:
         episode is done.
         """
 
-        reward = np.random.random()
+        reward = self.rng.random()
         self.state = self._random_state()
         done = False
 
