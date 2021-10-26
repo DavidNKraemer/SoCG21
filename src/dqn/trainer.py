@@ -6,8 +6,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 
 from src.dqn import agents, envs, models
-from src.envs import BoardEnv, agent_reward
-from src.board import AgentForDQN
+from src.envs import BoardEnv, bot_reward
+from src.board import BotForDQN
 from plot.plot_schedule import plot
 
 
@@ -54,7 +54,7 @@ class DQNTrainer:
         """
         
         self.env = BoardEnv(
-            *env_tuple, self.reward_fn, agent_type=AgentForDQN,
+            *env_tuple, self.reward_fn, bot_type=BotForDQN,
             neighborhood_radius=self.config['env_config']['neighborhood_radius']
         )
 
@@ -66,7 +66,7 @@ class DQNTrainer:
         dummy_env = BoardEnv(
             np.array([[0, 0]]), np.array([[0, 0]]), np.array([[]]),
             None,
-            lambda x: 1, agent_type=AgentForDQN,
+            lambda x: 1, bot_type=BotForDQN,
             neighborhood_radius=self.config['env_config']['neighborhood_radius']
         )
         example_state_tensor = self._tensor(dummy_env.reset())
@@ -84,13 +84,13 @@ class DQNTrainer:
             **self.config['agent_config']
         )
 
-        def reward_fn(agent):
+        def reward_fn(bot):
             config = self.config['env_config']
-            return agent_reward(
-                agent,
+            return bot_reward(
+                bot,
                 dist_pen=config['dist_penalty'],
                 obs_hit_pen=config['obs_hit_penalty'],
-                agents_hit_pen=config['agents_hit_penalty'],
+                bot_hit_pen=config['bot_hit_penalty'],
                 finish_bonus=config['finish_bonus']
             )
 

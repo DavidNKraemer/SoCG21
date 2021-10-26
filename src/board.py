@@ -73,7 +73,7 @@ class DumbPolicy:
     def __init__(self, board):
         """
         There's one policy for the entire board, and calling the policy takes a
-        single agent.
+        single bot.
 
         Params
         ------
@@ -82,17 +82,17 @@ class DumbPolicy:
         """
         self.board = board
 
-    def __call__(self, agent):
+    def __call__(self, bot):
         """
-        Given an agent, determine a move
+        Given an bot, determine a move
 
         Move horizontally until no longer needed. Then move vertically until
         arrived at the target
 
         Params
         ------
-        agent: Agent
-            The current agent to direct
+        bot: Bot
+            The current bot to direct
 
         Returns
         -------
@@ -103,7 +103,7 @@ class DumbPolicy:
         move in {'E', 'W', 'N', 'S', ''}
         """
         # compute displacements
-        horiz, vert = agent.target - agent.position
+        horiz, vert = bot.target - bot.position
 
         # horizontal displacement
         if horiz != 0:
@@ -118,27 +118,29 @@ class DumbPolicy:
             return ''
 
 
-class Agent:
+class Bot:  # TODO: rename!  Current candidate: "Bot"
     """
-    A pixel-robot aware of only its own local data, not those of its peers.
+    A pixel-robot aware of only its own local state, not those of its peers.
 
     Fields:
         -position: current position, a coordinate pair;
         -target: target coordinate pair;
         -neighborhood: representation of the surrounding 9 pixels.
     """
-    def __init__(self, start, target, board, agent_id):
+    def __init__(self, start, target, board, bot_id):
         """
-        Construct an Agent object.
+        Construct an Bot object.
 
         Params
         ------
         start: numpy ndarray
-            agent's starting position
+            bot's starting position
         target: numpy ndarray
-            agent's targett position
+            bot's targett position
         board: Board
-            game board object on which agent resides
+            game board object on which bot resides
+        bot_id: int
+            unique identifier with respect to the game board
 
         Preconditions
         -------------
@@ -149,13 +151,13 @@ class Agent:
         self.board = board
         self._local_state = LocalState(self)  # state representer class
         self.local_clock = 0  # local clock
-        self.agent_id = agent_id
+        self.bot_id = bot_id
         self.prev_position = self.position  # initialize; update with move()
 
     @property
     def state(self):
         """
-        The agent communicates its "state" through its state representation
+        The bot communicates its "state" through its state representation
         class
 
         Returns
@@ -171,16 +173,17 @@ class Agent:
         Return the l_1 distance between self's current position and that of
         the target position.
 
-        Note: this method ignores obstacles and other agents that might be in
+        Note: this method ignores obstacles and other bots that might be in
         the way! We return only the l_1 distance between two pixels. Nothing
         fancy is done w.r.t. obstacle avoidance.
         """
         # return np.linalg.norm(self.target - self.position, ord=1)
-        return np.linalg.norm(self.target - self.position, ord=2)**2
+        diff = self.target - self.position
+        return diff @ diff
 
     def attarget(self):
         """
-        Returns whether the agent is in its target position
+        Returns whether the bot is in its target position
 
         Returns
         -------
@@ -190,13 +193,13 @@ class Agent:
 
     def move(self, direction):
         """
-        "Move" the agent according to the specified direction. After calling
+        "Move" the bot according to the specified direction. After calling
         this method, the following will have been updated:
-            * the agent's position will be in the adjacent tile corresponding
+            * the bot's position will be in the adjacent tile corresponding
               to the direction
-            * the agent will have "exited" from the tiles opposite of the
+            * the bot will have "exited" from the tiles opposite of the
               direction of movement
-            * the agent will have "entered" the tiles along the direction of
+            * the bot will have "entered" the tiles along the direction of
               movement
 
         Params
@@ -215,30 +218,31 @@ class Agent:
         # find all of the pixels *leaving* the neighborhood
         old_axis = self.position + get_pixels(-MOVES[direction], 1)
 
-        # remove agent from position
-        self.board.occupied_pixels[tuple(self.position)].remove(self.agent_id)
+        # remove bot from position
+        self.board.occupied_pixels[tuple(self.position)].remove(self.bot_id)
         # if an empty set
         if not self.board.occupied_pixels[tuple(self.position)]:
             del self.board.occupied_pixels[tuple(self.position)]
 
-        # update previous position (needed for agents_hit() in env.py)
+        # update previous position (needed for bots_hit() in env.py)
         self.prev_position = copy(self.position)
-        # move the agent's position
+        # move the bot's position
         self.position += MOVES[direction]
 
         # update position in occupied_pixels
-        self.board.occupied_pixels[tuple(self.position)].add(self.agent_id)
+        self.board.occupied_pixels[tuple(self.position)].add(self.bot_id)
 
         new_axis = self.position + get_pixels(MOVES[direction], 1)
 
         for pixel in old_axis:
             # remove pixels no longer in the neighborhood
-            self.board.active_pixels[tuple(pixel)].remove(self.agent_id)
+            self.board.active_pixels[tuple(pixel)].remove(self.bot_id)
             if not self.board.active_pixels[tuple(pixel)]:
                 del self.board.active_pixels[tuple(pixel)]
+
         for pixel in new_axis:
             # add pixels now in the neighborhood
-            self.board.active_pixels[tuple(pixel)].add(self.agent_id)
+            self.board.active_pixels[tuple(pixel)].add(self.bot_id)
 
         # update the local clock
         self.local_clock += 1
@@ -262,7 +266,7 @@ class Agent:
 
     def priority(self):
         """
-        Priority value of the agent to be evaluated in the movement queue in
+        Priority value of the bot to be evaluated in the movement queue in
         the board.
 
         TODO: make a better priority function, possibly give it over to a
@@ -277,11 +281,11 @@ class Agent:
 
     def __lt__(self, other):
         """
-        Compares agents for ordering in the priority queue.
+        Compares bots for ordering in the priority queue.
 
         Params
         ------
-        other: Agent
+        other: Bot
             to be compared against
 
         Returns
@@ -294,54 +298,54 @@ class Agent:
         """
         Print-friendly description string
         """
-        return f"Agent({self.position}, {self.target}, {self.priority()})"
+        return f"Bot({self.position}, {self.target}, {self.priority()})"
 
     def __repr__(self):
         """
         Debug-friendly info
         """
-        return f"Agent<{id(self)}>(Board<{id(self.board)}>)"
+        return f"Bot<{id(self)}>(Board<{id(self.board)}>)"
 
 
-class AgentForDQN(Agent):
+class BotForDQN(Bot):
     """
-    Same as Agent, but uses LocalStateDQN instead of LocalState.
+    Same as Bot, but uses LocalStateDQN instead of LocalState.
     """
 
-    def __init__(self, start, target, board, agent_id):
+    def __init__(self, start, target, board, bot_id):
 
-        super().__init__(start, target, board, agent_id)
+        super().__init__(start, target, board, bot_id)
 
         self._local_state = LocalStateDQN(self)
 
 
-class DistributedBoard:
+class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
     """
-    A distributed state-representation comprised of Agents and some auxilliary,
+    A distributed state-representation comprised of Bots and some auxilliary,
     global bookeeping.
 
     Fields
     ------
-    agents
-        a list of Agents;
+    bots
+        a list of Bots;
     obstacles
         a list of pixels that are blocked-off and can't be used;
     active_pixels
         defaultdict: pixels -> Set[int]. These are pixels either occupied by
-        agents *or* those within agents' local neighborhoods;
+        bots *or* those within bots' local neighborhoods;
     prev_active_pixels
         active_pixels as seen in the previous (board-clock) time-step;
     occupied_pixels
-        defaultdict: pixels -> Set[int]. These are pixels occupied by agents.
+        defaultdict: pixels -> Set[int]. These are pixels occupied by bots.
     prev_occupied_pixels
         occupied_pixels as seen in the previous (board-clock) time-step;
     queue
-        heap used to handle orders in which agents are to move;
+        heap used to handle orders in which bots are to move;
     clock
         time-step counter.
     """
     def __init__(self, starts, targets, obstacles, instance,
-                 agent_type=Agent, neighborhood_radius=1,
+                 bot_type=Bot, neighborhood_radius=1,
                  **kwargs):
         """
         Construct a DistributedBoard object.
@@ -350,15 +354,16 @@ class DistributedBoard:
         self._targets = targets
         self.obstacles = obstacles  # Set of length-two numpy arrays
         self.max_clock = kwargs.get('max_clock', None)
-        self.agent_type = agent_type
+        self.bot_type = bot_type
         self.neighborhood_radius = neighborhood_radius
-        self.instance = instance
+        self.instance = instance  # TODO: what is this?
+                                  # ANS: ID# (type == int) for SoCG plugin
 
     def _snapshot(self):
         """
         Stash current timestep info.
 
-        Allows recovery of local neighborhood of a given agent from the stashed
+        Allows recovery of local neighborhood of a given bot from the stashed
         timestep.
         """
         self.prev_active_pixels = deepcopy(self.active_pixels)
@@ -369,101 +374,124 @@ class DistributedBoard:
         Resets the DistributedBoard, useful for reusing the same object for gym
         environment.
         """
-        self.agents = [self.agent_type(s, t, self, i) \
-                       for i, (s, t) in enumerate(zip(self._starts,
-                                                      self._targets))]
-        self.queue = []
+        # initialize all the bots to original start/target info
+        self.bots = []
+        for i, (start, target) in enumerate(zip(self._starts, self._targets)):
+            self.bots.append(self.bot_type(start, target, self, i))
+
+        # reset the queue
+        self.queue = []  # TODO: do we want the queue in this class?
+                         # i.e., do we want to separate the infinite grid class
+                         # from the distributed board manager class
+
+        # reset the clock
         self.clock = 0
 
-        # init a dict: length-two numpy arrays -> sets of Agent ids
+        # init a dict: length-two numpy arrays -> sets of Bot ids
         self.active_pixels = defaultdict(set)
 
-        # init a dict: tuple -> sets of Agent ids
+        # init a dict: tuple -> sets of Bot ids
         self.occupied_pixels = defaultdict(set)
 
-        # values are agent ids
-        for agent in self.agents:
+        # values are bot ids
+        for bot in self.bots:
             # activate pixels
-            for pixel in agent.neighborhood(self.neighborhood_radius):
+            for pixel in bot.neighborhood(self.neighborhood_radius):
                 # this is the intended use of active_pixels
-                self.active_pixels[tuple(pixel)].add(agent.agent_id)
+                self.active_pixels[tuple(pixel)].add(bot.bot_id)
 
             # occupied pixels
-            self.occupied_pixels[tuple(agent.position)].add(agent.agent_id)
+            self.occupied_pixels[tuple(bot.position)].add(bot.bot_id)
+            # TODO: why don't obstacles get added to the occupied_pixels?
 
             # populate the queue
-            self.insert(agent)
+            self.insert(bot)
 
         self._snapshot()
 
+        # TODO: SoCG wrappers, delete eventually
         self.solution = Solution(self.instance)
         self.step = SolutionStep()
 
     def pop(self):
         """
-        Pops the next agent from the queue and returns it. During processing,
-        we also manage the board's clock and the agent's local clock.
+        Pops the next bot from the queue and returns it. During processing,
+        we also manage the board's clock and the bot's local clock.
 
         See https://github.com/DavidNKraemer/SoCG21/issues/3#issue-784378247
         for details of this implementation.
 
         Returns
         -------
-        next_agent: Agent
-            the agent with the highest priority
+        next_bot: Bot
+            the bot with the highest priority
         """
-        agent = heapq.heappop(self.queue)
+        bot = heapq.heappop(self.queue)
         self._snapshot()
-        if agent.local_clock > self.clock:
-            self.clock = agent.local_clock
+
+        if bot.local_clock > self.clock:
+            self.clock = bot.local_clock
+
+            # TODO: what are these two SoCG lines?
             self.solution.add_step(self.step)
             self.step = SolutionStep()
-        agent.local_clock = self.clock
 
-        return agent
+        bot.local_clock = self.clock
+
+        return bot
 
     def peek(self):
         """
-        Returns the next agent from the queue without removing it. During
-        processing, the board's clock and the agent's local clock is updated.
+        Returns the next bot from the queue without removing it. During
+        processing, the board's clock and the bot's local clock is updated.
         """
-        agent = self.queue[0]
+        bot = self.queue[0]  # in Python heapq, the 0th element is always the
+                               # one with the highest priority
         self._snapshot()
-        if agent.local_clock > self.clock:
-            self.clock = agent.local_clock
+
+        # TODO: is updating the clock here appropriate?
+        # if so, perhaps abstract the if clause in this and the previous method
+        # into its own method
+        if bot.local_clock > self.clock:
+            self.clock = bot.local_clock
             self.solution.add_step(self.step)
             self.step = SolutionStep()
-        agent.local_clock = self.clock
 
-        return agent
+        bot.local_clock = self.clock
 
-    def insert(self, agent):
+        return bot
+
+    def insert(self, bot):
         """
-        Inserts an agent from the queue and returns it
+        Inserts an bot from the queue and returns it
 
         Params
         -------
-        agent: Agent
-            the agent to be inserted into the queue
+        bot: Bot
+            the bot to be inserted into the queue
         """
-        heapq.heappush(self.queue, agent)
+        heapq.heappush(self.queue, bot)
 
     def isdone(self):
         """
-        Returns whether all agents have found their target
+        Returns whether all bots have found their target
 
         Returns
         -------
-        True iff every agent is at its target position
+        True iff every bot is at its target position
         """
-        targets_reached = all(agent.attarget() for agent in self.agents)
+        targets_reached = all(bot.attarget() for bot in self.bots)
+
         clock_expired = False if self.max_clock is None else \
             self.clock >= self.max_clock
+
         return clock_expired or targets_reached
 
 
 def cart_to_imag(origin, position, radius):
     """
+    Cartesian coordinates to image coordinates
+
     Params
     ------
     origin: numpy ndarray
@@ -473,25 +501,27 @@ def cart_to_imag(origin, position, radius):
     diff = position - origin
     imag_diff = np.array([-diff[1], diff[0]])
 
-    return np.full(imag_diff.shape, radius) + imag_diff
+    array_center = np.full(imag_diff.shape, radius)
+
+    return array_center + imag_diff
 
 
 class LocalState:
     """
-    Local state information for one Agent.
+    Local state information for one Bot.
     """
     shape = (22,)
-    def __init__(self, agent):
+    def __init__(self, bot):
         """
         Each object is attached ("privately", no need for external use) to a
-        single agent.
+        single bot.
 
         Return
         ------
-        agent: Agent
+        bot: Bot
         """
-        self.agent = agent
-        self.board = self.agent.board
+        self.bot = bot
+        self.board = self.bot.board
         self.neighborhood_radius = self.board.neighborhood_radius
 
     @property
@@ -500,11 +530,11 @@ class LocalState:
         Encode current position, target position, and neighborhood.
 
         Current features:
-            * for every tile in the neighborhood of the agent, return the
-              number of agents occupying the tile as well as whether an
+            * for every tile in the neighborhood of the bot, return the
+              number of bots occupying the tile as well as whether an
               obstacle is occupying the tile
-            * current location of the agent
-            * target location of the agent
+            * current location of the bot
+            * target location of the bot
 
         TODO: make more interesting
 
@@ -512,40 +542,43 @@ class LocalState:
         -------
         encoded_state: nump ndarray
         """
-        neighborhood = np.zeros((9, 2))
-        square_nbd = neighborhood.view().reshape((3,3,2))
+        n = 2 * self.neighborhood_radius + 1
 
-        AGENTS, OBSTACLES = 0, 1
+        neighborhood = np.zeros((n * n, 2))
+        square_nbd = neighborhood.view().reshape((n, n, 2))
+
+        BOTS, OBSTACLES = 0, 1
 
         # for every pixel in the neighborhood
         for index, pixel in enumerate(
-            self.agent.neighborhood(self.neighborhood_radius)):
+            self.bot.neighborhood(self.neighborhood_radius)):
             # check if the pixel is occupied by an obstacle
             neighborhood[index, OBSTACLES] = int(pixel in self.board.obstacles)
 
-            # for every (other) agent in the active_pixels set corresponding to
+            # for every (other) bot in the active_pixels set corresponding to
             # the corresponding pixel
-            for agent_id in self.board.occupied_pixels[tuple(pixel)]:
-                # if the other agent is in the neighborhood, increment that
+            for bot_id in self.board.occupied_pixels[tuple(pixel)]:
+                # if the other bot is in the neighborhood, increment that
                 # position pixel
-                if self.agent.agent_id != agent_id:
-                    other = self.board.agents[agent_id]
-                    i, j = cart_to_imag(self.agent.position, other.position, 1)
-                    square_nbd[i, j, AGENTS] += 1
+                if self.bot.bot_id != bot_id:
+                    other = self.board.bots[bot_id]
+                    i, j = cart_to_imag(self.bot.position, other.position,
+                                        self.neighborhood_radius)
+                    square_nbd[i, j, BOTS] += 1
 
         return np.r_[
-            self.agent.position, self.agent.target, neighborhood.reshape(-1)
+            self.bot.position, self.bot.target, neighborhood.reshape(-1)
         ]
 
 
 class LocalStateDQN:
     """
-    Local state representation for a single Agent for use in DQN.
+    Local state representation for a single Bot for use in DQN.
 
     Each state is a stack, or tensor, of 3 square images composed of pixels,
-    centered on the Agent. Each image in the stack represents a different
-    piece of information: the number of neighboring Agents occupying nearby
-    pixels, a map of nearby obstacles, direction to the Agent's target, etc.
+    centered on the Bot. Each image in the stack represents a different
+    piece of information: the number of neighboring Bots occupying nearby
+    pixels, a map of nearby obstacles, direction to the Bot's target, etc.
 
     In the case where side length is 3 pixels, an example state is:
 
@@ -561,14 +594,14 @@ class LocalStateDQN:
           [0, 0, 0],
           [0, 0, 0]]]
 
-    where the first image gives the agent neighborhood, the second gives
+    where the first image gives the bot neighborhood, the second gives
     the obstacle neighborhood, and the third has a 1 in the direction of the
-    Agent's target.
+    Bot's target.
     """
 
-    def __init__(self, agent):
-        self.agent = agent
-        self.board = self.agent.board
+    def __init__(self, bot):
+        self.bot = bot
+        self.board = self.bot.board
         self.neighborhood_radius = self.board.neighborhood_radius
         self.side_length = 2 * self.neighborhood_radius + 1
 
@@ -583,21 +616,25 @@ class LocalStateDQN:
         state = np.zeros((3, self.side_length, self.side_length))
 
         neighborhood = np.array(
-            list(self.agent.neighborhood(self.neighborhood_radius))
+            list(self.bot.neighborhood(self.neighborhood_radius))
         )
-        offset = neighborhood[0]
+
+        # cartesian coordinates of the bottom left corner of the neighborhood
+        offset = self.bot.position - np.array([self.neighborhood_radius,
+                                               self.neighborhood_radius])
 
         for pixel in neighborhood:
-            # add number of agents to each pixel in first image
+            # add number of bots to each pixel in first image
 
             # Wes: should the below line be occupied_pixels[tuple(pixel)],
             # or is it okay as-is? Just double-checking... I do not want to
-            # pre-emptively influence your opinion.
-            for agent_id in self.board.active_pixels[tuple(pixel)]:
-                agent = self.board.agents[agent_id]
-                if self.agent.agent_id != agent_id and np.all(
-                    agent.position == pixel):
-                    indices = 0, *(agent.position - offset)
+            # pre-emptively influence your opinion. 
+            # 
+            # ANSWER (10/26/21): should be occupied_pixels
+            for bot_id in self.board.occupied_pixels[tuple(pixel)]:
+                bot = self.board.bots[bot_id]
+                if self.bot.bot_id != bot_id:
+                    indices = 0, *(bot.position - offset)
                     state[indices] += 1
 
             # add obstacles to second image
@@ -606,12 +643,17 @@ class LocalStateDQN:
 
         # add target direction to third image, projecting onto neighborhood
         # if necessary
-        if self._is_row_in(self.agent.target, neighborhood):
-            indices = 2, *(self.agent.target - offset)
+        if self._is_row_in(self.bot.target, neighborhood):
+            indices = 2, *(self.bot.target - offset)
             state[indices] = 1
         else:
+            # TODO: only need to project on the *boundary* (which is Omega(n)) of
+            # the neighborhood, not the entire neighborhood (which is Omega(n^2))
+
+            # should be L2?? I would think L1 projection <-- write a GH issue
             distances = np.array([np.linalg.norm(
-                self.agent.target - pixel, ord=2) for pixel in neighborhood])
+                self.bot.target - pixel, ord=2) for pixel in neighborhood])
+
             indices = 2, *(neighborhood[np.argmin(distances)] - offset)
             state[indices] = 1
 

@@ -8,7 +8,7 @@ from cgshop2021_pyutils import Direction, Solution, SolutionStep
 
 
 def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
-            agent_collisions_pen, error_pen, finish_bonus):
+            bot_collisions_pen, error_pen, finish_bonus):
     """
     Return the value of the fitness function associated with a simulation
     trajectory.
@@ -30,12 +30,12 @@ def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
         Penalty multiplier for total time elapsed, computed using board clock.
     obs_hit_pen: float
         Pentalty multiplier for the number of obstacles hit.
-    agent_collisions_pen: float
-        Penalty multiplier for the number of agent collisions.
+    bot_collisions_pen: float
+        Penalty multiplier for the number of bot collisions.
     error_pen: float
         Penalty multiplier for the error. Error is defined as the distance
-        between agent's final position at simulation end and target, aggregated
-        over all agents.
+        between bot's final position at simulation end and target, aggregated
+        over all bots.
     finish_bonus: float
         Reward multiplier for finishing before the simulation circuit breaker
         has been tripped.
@@ -48,68 +48,69 @@ def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
     sim_stats = board_env.sim_stats  # alias
     # destructure sim_stats so below linear combination is more concise
     dist_trav, time = sim_stats.dist_trav, sim_stats.time
-    obs_hit, agent_collisions = sim_stats.obs_hit, sim_stats.agent_collisions
+    obs_hit, bot_collisions = sim_stats.obs_hit, sim_stats.bot_collisions
     error, finished = sim_stats.error, sim_stats.finished
     # return a linear combination of rewards
-    penalties = [dist_trav_pen, time_pen, obs_hit_pen, agent_collisions_pen,
+    penalties = [dist_trav_pen, time_pen, obs_hit_pen, bot_collisions_pen,
                  error_pen]
-    stats = [dist_trav, time, obs_hit, agent_collisions, error]
+    stats = [dist_trav, time, obs_hit, bot_collisions, error]
     costs = sum(map(mul, penalties, stats))
 
     return finish_bonus*finished - costs
 
 
-def obstacles_hit(agent):
+def obstacles_hit(bot):
     """
-    Return the number of obstacles with which the specified agent collided
+    Return the number of obstacles with which the specified bot collided
     over the previous time-step.
 
-    The output will either be 0 or 1, for an agent moves only one unit per
+    The output will either be 0 or 1, for an bot moves only one unit per
     time-step, and no two obstacles overlap (obstacles are merely pixels, not
     collections thereof). We chose to make this function integer-valued -- not
-    boolean-valued -- to maintain continuity with agents_hit().
+    boolean-valued -- to maintain continuity with bots_hit().
     """
     # obstacles don't move. Collision occurred in previous time-step iff
-    # agent's position in present time-step is an obstacle pixel.
-    return int(agent.position in agent.board.obstacles)
+    # bot's position in present time-step is an obstacle pixel.
+    return int(bot.position in bot.board.obstacles)
 
 
-def agents_hit(agent):
+def bots_hit(bot):
     """
-    Return the number of other agents with which the specified agent collided
+    Return the number of other bots with which the specified bot collided
     over the previous time-step.
     """
-    # a collision occurred iff in agent's neighborhood, another agent a' moved
+    # a collision occurred iff in bot's neighborhood, another bot a' moved
     # cardinal directions (i.e., from N to E, from S to N, from E to N, etc.)
+    # TODO: import the dictionary from board.py
     N = np.array([0, 1])
     S = np.array([0, -1])
     W = np.array([-1, 0])
     E = np.array([1, 0])
 
-    # number of other agents sharing the same pixel as agent
-    n_collisions = len(agent.board.occupied_pixels[tuple(agent.position)]) - 1
+    # number of other bots sharing the same pixel as bot
+    n_collisions = len(bot.board.occupied_pixels[tuple(bot.position)]) - 1
     # DEBUG
-    # print(f"Position: {agent.board.occupied_pixels[tuple(agent.position)]}")
+    # print(f"Position: {bot.board.occupied_pixels[tuple(bot.position)]}")
 
     for direction, other_direction in product([N, S, W, E], [N, S, W, E]):
         if direction is other_direction:
             continue
 
         # DEBUG
-        # print("direction: ", agent.board.prev_active_pixels[
-        #    tuple(agent.prev_position + direction)])
+        # print("direction: ", bot.board.prev_active_pixels[
+        #    tuple(bot.prev_position + direction)])
 
-        # store set of agent ids occupying this pixel at previous time-step
-        prev_ids = agent.board.prev_occupied_pixels[
-            tuple(agent.prev_position + direction)]
+        # store set of bot ids occupying this pixel at previous time-step
+        prev_ids = bot.board.prev_occupied_pixels[
+            tuple(bot.prev_position + direction)]
 
         # DEBUG
-        # print("other_direction: ", agent.board.prev_active_pixels[
-        #    tuple(agent.position + other_direction)])
+        # print("other_direction: ", bot.board.prev_active_pixels[
+        #    tuple(bot.position + other_direction)])
 
-        # store set of agent ids occupying this pixel at current time-step
-        curr_ids = agent.board.occupied_pixels[
-            tuple(agent.position + other_direction)]
+        # store set of bot ids occupying this pixel at current time-step
+        curr_ids = bot.board.occupied_pixels[
+            tuple(bot.position + other_direction)]
         # take intersection of two sets, and increment by cardinality
         # print(f"Intersection: {curr_ids & prev_ids}")
         n_collisions += len(curr_ids & prev_ids)
@@ -117,9 +118,9 @@ def agents_hit(agent):
     return n_collisions
 
 
-def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen, finish_bonus):
+def bot_reward(bot, dist_pen, obs_hit_pen, bots_hit_pen, finish_bonus):
     """
-    Return the "instantaneous" reward signal for the specified agent.
+    Return the "instantaneous" reward signal for the specified bot.
 
     IMPORTANT
     ---------
@@ -128,14 +129,14 @@ def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen, finish_bonus):
 
     Params
     ------
-    agent: Agent
-        Agent under consideration.
+    bot: Bot
+        Bot under consideration.
     dist_pen: float
         Penalty multiplier for distance-to-go.
     obs_hit_pen: float
         Penalty multiplier for hitting an obstacle.
-    agents_hit_pen: float
-        Penalty multiplier for hitting another agent.
+    bots_hit_pen: float
+        Penalty multiplier for hitting another bot.
     finish_bonus: float
         Reward for reaching one's target.
 
@@ -148,12 +149,17 @@ def agent_reward(agent, dist_pen, obs_hit_pen, agents_hit_pen, finish_bonus):
     -------------
     board.reset() has already been called.
     """
-    # dist_to_go() returns the l_1 distance between an agent's position
-    # and its target, ignoring intermediate obstacles and other agents that
-    # might be in the way. See board.py's Agent class.
-    return finish_bonus*agent.attarget() -(
-        dist_pen*agent.dist_to_go + obs_hit_pen*obstacles_hit(agent)
-        + agents_hit_pen*agents_hit(agent))
+    # dist_to_go() returns the l_1 distance between an bot's position
+    # and its target, ignoring intermediate obstacles and other bots that
+    # might be in the way. See board.py's Bot class.
+    return (
+        finish_bonus * bot.attarget() -
+        (
+            dist_pen * bot.dist_to_go + 
+            obs_hit_pen * obstacles_hit(bot) + 
+            bots_hit_pen * bots_hit(bot)
+        )
+    )
 
 
 # TODO: decide if we need this function
@@ -172,7 +178,7 @@ def board_reward(board, alpha, beta, gamma):
     beta: float
         Pentalty multiplier for hitting an obstacle.
     gamma: float
-        Penalty multiplier for hitting another agent.
+        Penalty multiplier for hitting another bot.
 
     Returns
     -------
@@ -183,7 +189,7 @@ def board_reward(board, alpha, beta, gamma):
     -------------
     board.reset() has already been called
     """
-    return 1
+    return 1  # TODO: unneeded?
 
 
 class BoardEnv(gym.Env):
@@ -194,9 +200,9 @@ class BoardEnv(gym.Env):
         Params
         ------
         starts: numpy ndarray
-            Array of starting positions for the agents
+            Array of starting positions for the bots
         targets: numpy ndarray
-            Array of target positions for the agents
+            Array of target positions for the bots
         obstacles: numpy ndarray
             Array of obstacle locations
 
@@ -212,7 +218,7 @@ class BoardEnv(gym.Env):
         self.observation_space = gym.spaces.Box(
             low=-np.inf, high=np.inf, shape=LocalState.shape
         )
-        self.instance = instance
+        self.instance = instance  # SoCG artifact
         self.reward_fn = reward_fn
 
     def step(self, action):
@@ -222,18 +228,18 @@ class BoardEnv(gym.Env):
         Params
         ------
         action: str
-            Action for the given agent to move and update the board.
+            Action for the given bot to move and update the board.
 
         Returns
         -------
         observation: numpy ndarray
             Representation of the next state of the game board (or of the next
-            agent in the queue?? TODO: clarify)
+            bot in the queue?? TODO: clarify)
         reward: float
             Signal from the given action. This will require engineering, so I'm
             abstracting it by passing in an external function.
         done: bool
-            Whether every agent has reached their target
+            Whether every bot has reached their target
         info: dict
             Currently empty
 
@@ -244,20 +250,23 @@ class BoardEnv(gym.Env):
         """
         # please don't re-order
         actions = ['E', 'W', 'N', 'S', '']
+
+        # SoCG artifacts
         directions = [Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH]
 
-        # pop the next agent, move according to the action, and re-insert
-        agent = self.board.pop()
-        agent.move(actions[action])
-        self.board.insert(agent)
+        # pop the next bot, move according to the action, and re-insert
+        bot = self.board.pop()
+        bot.move(actions[action])
+        self.board.insert(bot)
         done = self.board.isdone()
 
+        # SoCG artifacts TODO determine if needed at all
         if actions[action] is not '':
-            self.board.step[agent.agent_id] = directions[action]
+            self.board.step[bot.bot_id] = directions[action]
 
         # update sim_stats
-        self.sim_stats.agent_collisions += agents_hit(agent)
-        self.sim_stats.obs_hit += obstacles_hit(agent)
+        self.sim_stats.bot_collisions += bots_hit(bot)
+        self.sim_stats.obs_hit += obstacles_hit(bot)
         self.sim_stats.finished = done
 
         # if action is not the empty string
@@ -268,22 +277,24 @@ class BoardEnv(gym.Env):
             self.sim_stats.time = self.board.clock
             self.sim_stats.compute_l1error(self.board)
 
-        # save the state by peeking at the following agent in the queue
+        # save the state by peeking at the following bot in the queue
         self.state = self.board.peek().state
 
-        reward = self.reward_fn(agent)
+        reward = self.reward_fn(bot)
 
-        return agent.state, reward, done, {}
+        return bot.state, reward, done, {}
 
     def reset(self):
         """
-        Resets the board environment, along with all of its agents.
+        Resets the board environment, along with all of its bots.
 
         [Called for side-effects]
         """
         self.sim_stats = SimStats()
         self.board.reset()
         self.state = self.board.peek().state
+
+        # SoCG artifact
         self.solution = Solution(self.instance)
 
         return self.state

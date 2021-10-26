@@ -12,14 +12,14 @@ class SimStats:
     Fields
     ------
     dist_trav: int
-        Total distance travelled by team of agents.
+        Total distance travelled by team of bots.
     time: int
         Total time elapsed (board clock ticks).
     obs_hit: int
-        Total number of objects hit by the team of agents.
-    agent_collisions: int
-        Total number of collisions between agents. When agent i collides with
-        agent j, this is counted as one collision, not two.
+        Total number of objects hit by the team of bots.
+    bot_collisions: int
+        Total number of collisions between bots. When bot i collides with
+        bot j, this is counted as one collision, not two.
     """
 
     def __init__(self):
@@ -29,21 +29,21 @@ class SimStats:
         self.dist_trav = 0
         self.time = 0
         self.obs_hit = 0
-        self.agent_collisions = 0
+        self.bot_collisions = 0
         self.error = 0.
         self.finished = False
 
     def compute_l1error(self, board):
         """
-        Return the sum of L1 distances between agents' final positions and
+        Return the sum of L1 distances between bots' final positions and
         their targets.
 
         Parameter
         ---------
         board: DistributedBoard
         """
-        # equivalent: self.error = sum(agent.dist_to_go() for agent in board.agents)
+        # equivalent: self.error = sum(bot.dist_to_go() for bot in board.bots)
         aggregate_error = 0
-        for agent in board.agents:
-            aggregate_error += agent.dist_to_go
+        for bot in board.bots:
+            aggregate_error += bot.dist_to_go
         self.error = aggregate_error
