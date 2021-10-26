@@ -8,7 +8,7 @@ env_config:
   neighborhood_radius: 10
   dist_penalty: 300
   obs_hit_penalty: 50
-  agents_hit_penalty: 50
+  bots_hit_penalty: 50
   finish_bonus: 1000
 
 network_config:
