@@ -49,14 +49,14 @@ def get_pixels(direction, radius):
     Otherwise, pixels.shape[1] == 2
     """
     if np.all(direction == 0):
-        return np.array([[]]).reshape(-1,2)
+        return np.array([[]]).reshape(-1, 2)
 
     pixels = []
     parallel = (direction != 0).astype(np.int) # parallel axis
     sign = int(direction[parallel == 1])
     orthogonal = (direction == 0).astype(np.int)  # orthogonal axis
 
-    for i in range(1, radius+1):
+    for i in range(1, radius + 1):
         for j in range(-radius, radius+1):
             pixels.append(list(sign * i * parallel + j * orthogonal))
 
@@ -263,6 +263,50 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         """
         for x, y in product(np.arange(-dist, dist+1), repeat=2):
             yield self.position + np.array([x,y])
+
+    def boundary(self, dist):
+        """
+        Returns a generator of the L_infinity sphere of radius `dist`
+
+        The sphere is the *boundary* of the ball.
+
+        Params
+        ------
+        dist: int
+            radius (discrete)
+
+        Returns
+        -------
+        pixels: generator
+            all pixels with L_infinity distance equalling `dist`
+
+        """
+        sphere = []
+        
+        directions = np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
+        next_directions = np.roll(directions, 1, axis=0)
+
+        for direction, next_direction in zip(directions, next_directions):
+
+            # parallel axis
+            parallel = (direction != 0).astype(int)
+
+            # orthogonal axis
+            orthogonal = (direction == 0).astype(int)
+
+            # direction along the parallel axis
+            sign = int(direction[parallel == 1])
+
+            sequence = np.arange(-dist + 1, dist).reshape((-1, 1))
+
+            tiles = sign * dist * parallel + sequence * orthogonal
+            corner = dist * (direction + next_direction)
+
+            sphere += list(tiles) + [corner]
+
+
+        return np.array(sphere)
+
 
     def priority(self):
         """
@@ -651,10 +695,14 @@ class LocalStateDQN:
             # the neighborhood, not the entire neighborhood (which is Omega(n^2))
 
             # should be L2?? I would think L1 projection <-- write a GH issue
-            distances = np.array([np.linalg.norm(
-                self.bot.target - pixel, ord=2) for pixel in neighborhood])
+            diff = self.bot.target - self.bot.position
+            linf_dist = np.abs(diff).max()
 
-            indices = 2, *(neighborhood[np.argmin(distances)] - offset)
+            intersection = self.bot.position + (self.neighborhood_radius / linf_dist) * diff
+            boundary = self.bot.boundary(self.neighborhood_radius)
+            distances = np.linalg.norm(boundary - intersection, axis=1, ord=2)
+
+            indices = 2, *(boundary[np.argmin(distances)] - offset)
             state[indices] = 1
 
         # flip each image, as images were modified upside-down
