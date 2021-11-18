@@ -336,16 +336,16 @@ class PZBoardEnv(AECEnv):
 
         self.agent_name_mapping = {agent: i for i, agent in enumerate(self.agents)}
 
-        actions = lambda: gym.spaces.Discrete(5)
-
-        self.action_spaces = {agent: actions() for agent in self.agents}
-
-        observations = lambda: gym.spaces.Box(
-            low=-np.inf, high=np.inf, shape=LocalState.shape
+        self.action_spaces = {}
+        self.observation_spaces = {}
+        for agent in self.agents:
+            self.action_spaces[agent] = gym.spaces.Discrete(5)
+            self.observation_spaces[agent] = gym.spaces.Box(
+                low=-np.inf, high=np.inf, shape=LocalState.shape
         )
-        self.observation_spaces = {agent: observations() for agent in self.agents}
 
-        self._agent_selector = lambda: self.agents[self.board.pop()]
+        # for the priority queue
+        self._agent_selector = lambda: self.agents[self.board.pop().bot_id]
 
 
     def reset(self):
@@ -358,11 +358,11 @@ class PZBoardEnv(AECEnv):
         self._cumulative_rewards = {}
         self.dones = {}
         self.infos = {}
+        self.observations = {}
 
-        bots = (self.board.bots[self.agent_name_mapping[agent]] for agent in
-                self.agents)
 
-        for agent, bot in zip(self.agents, bots):
+        for agent in self.agents:
+            bot = self.board.bots[self.agent_name_mapping[agent]]
 
             self.rewards[agent] = 0.
             self._cumulative_rewards[agent] = 0.
@@ -370,18 +370,21 @@ class PZBoardEnv(AECEnv):
             self.infos[agent] = {}
             self.observations[agent] = bot.state
 
-        self.agent_selection = self.agents[self.board.peek()]
+        self.agent_selection = self._agent_selector()
 
     def step(self, action):
         """
         """
+        agent = self.agent_selection
+
+        assert action in self.action_spaces[agent], "Invalid action!"
 
         actions = ['E', 'W', 'N', 'S', '']
 
-        agent = self.agent_selection
         bot = self.board.bots[self.agent_name_mapping[agent]]
 
         bot.move(actions[action])
+
         self.board.insert(bot)
 
         self.dones[agent] = self.board.isdone()  # maybe just bot.attarget()?
@@ -401,8 +404,8 @@ class PZBoardEnv(AECEnv):
             self.sim_stats.compute_l1error(self.board)
 
         # reward does not accumulate: cumulative == instantaneous
-        self._cumulative_rewards[agent] = 0.  
         self.rewards[agent] = self.reward_fn(bot)
+        self._cumulative_rewards[agent] = 0.  
         self._accumulate_rewards()
 
         # pops the agent corresponding to the next bot off the queue and stores
