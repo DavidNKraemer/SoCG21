@@ -10,8 +10,15 @@ from cgshop2021_pyutils import Direction, Solution, SolutionStep
 from pettingzoo import AECEnv
 
 
-def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
-            bot_collisions_pen, error_pen, finish_bonus):
+def fitness(
+    board_env,
+    dist_trav_pen,
+    time_pen,
+    obs_hit_pen,
+    bot_collisions_pen,
+    error_pen,
+    finish_bonus,
+):
     """
     Return the value of the fitness function associated with a simulation
     trajectory.
@@ -54,12 +61,17 @@ def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
     obs_hit, bot_collisions = sim_stats.obs_hit, sim_stats.bot_collisions
     error, finished = sim_stats.error, sim_stats.finished
     # return a linear combination of rewards
-    penalties = [dist_trav_pen, time_pen, obs_hit_pen, bot_collisions_pen,
-                 error_pen]
+    penalties = [
+        dist_trav_pen,
+        time_pen,
+        obs_hit_pen,
+        bot_collisions_pen,
+        error_pen,
+    ]
     stats = [dist_trav, time, obs_hit, bot_collisions, error]
     costs = sum(map(mul, penalties, stats))
 
-    return finish_bonus*finished - costs
+    return finish_bonus * finished - costs
 
 
 def obstacles_hit(bot):
@@ -105,7 +117,8 @@ def bots_hit(bot):
 
         # store set of bot ids occupying this pixel at previous time-step
         prev_ids = bot.board.prev_occupied_pixels[
-            tuple(bot.prev_position + direction)]
+            tuple(bot.prev_position + direction)
+        ]
 
         # DEBUG
         # print("other_direction: ", bot.board.prev_active_pixels[
@@ -113,7 +126,8 @@ def bots_hit(bot):
 
         # store set of bot ids occupying this pixel at current time-step
         curr_ids = bot.board.occupied_pixels[
-            tuple(bot.position + other_direction)]
+            tuple(bot.position + other_direction)
+        ]
         # take intersection of two sets, and increment by cardinality
         # print(f"Intersection: {curr_ids & prev_ids}")
         n_collisions += len(curr_ids & prev_ids)
@@ -155,13 +169,10 @@ def bot_reward(bot, dist_pen, obs_hit_pen, bots_hit_pen, finish_bonus):
     # dist_to_go() returns the l_1 distance between an bot's position
     # and its target, ignoring intermediate obstacles and other bots that
     # might be in the way. See board.py's Bot class.
-    return (
-        finish_bonus * bot.attarget() -
-        (
-            dist_pen * bot.dist_to_go + 
-            obs_hit_pen * obstacles_hit(bot) + 
-            bots_hit_pen * bots_hit(bot)
-        )
+    return finish_bonus * bot.attarget() - (
+        dist_pen * bot.dist_to_go
+        + obs_hit_pen * obstacles_hit(bot)
+        + bots_hit_pen * bots_hit(bot)
     )
 
 
@@ -196,9 +207,9 @@ def board_reward(board, alpha, beta, gamma):
 
 
 class BoardEnv(gym.Env):
-
-    def __init__(self, starts, targets, obstacles, instance, reward_fn,
-                 **board_kwargs):
+    def __init__(
+        self, starts, targets, obstacles, instance, reward_fn, **board_kwargs
+    ):
         """
         Params
         ------
@@ -214,8 +225,9 @@ class BoardEnv(gym.Env):
         starts.shape[0] == targets.shape[0]
         starts.shape[1] == targets.shape[1] == obstacles.shape[1] == 2
         """
-        self.board = DistributedBoard(starts, targets, obstacles, instance,
-                                      **board_kwargs)
+        self.board = DistributedBoard(
+            starts, targets, obstacles, instance, **board_kwargs
+        )
 
         self.action_space = gym.spaces.Discrete(5)
         self.observation_space = gym.spaces.Box(
@@ -252,10 +264,15 @@ class BoardEnv(gym.Env):
         self.reset() was already called
         """
         # please don't re-order
-        actions = ['E', 'W', 'N', 'S', '']
+        actions = ["E", "W", "N", "S", ""]
 
         # SoCG artifacts
-        directions = [Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH]
+        directions = [
+            Direction.EAST,
+            Direction.WEST,
+            Direction.NORTH,
+            Direction.SOUTH,
+        ]
 
         # pop the next bot, move according to the action, and re-insert
         bot = self.board.pop()
@@ -264,7 +281,7 @@ class BoardEnv(gym.Env):
         done = self.board.isdone()
 
         # SoCG artifacts TODO determine if needed at all
-        if actions[action] is not '':
+        if actions[action] != "":
             self.board.step[bot.bot_id] = directions[action]
 
         # update sim_stats
@@ -273,7 +290,7 @@ class BoardEnv(gym.Env):
         self.sim_stats.finished = done
 
         # if action is not the empty string
-        if actions[action] is not '':
+        if actions[action] != "":
             self.sim_stats.dist_trav += 1
 
         if done:
@@ -320,21 +337,22 @@ class BoardEnv(gym.Env):
 
 
 class PZBoardEnv(AECEnv):
-
-    def __init__(self, starts, targets, obstacles, instance, reward_fn,
-                 **board_kwargs):
-        """
-        """
+    def __init__(
+        self, starts, targets, obstacles, instance, reward_fn, **board_kwargs
+    ):
+        """ """
         self.board = DistributedBoard(
             starts, targets, obstacles, instance, **board_kwargs
         )
 
         self.reward_fn = reward_fn
-        
+
         n_bots = len(starts)
         self.agents = [f"bot_{r}" for r in range(n_bots)]
 
-        self.agent_name_mapping = {agent: i for i, agent in enumerate(self.agents)}
+        self.agent_name_mapping = {
+            agent: i for i, agent in enumerate(self.agents)
+        }
 
         self.action_spaces = {}
         self.observation_spaces = {}
@@ -342,15 +360,13 @@ class PZBoardEnv(AECEnv):
             self.action_spaces[agent] = gym.spaces.Discrete(5)
             self.observation_spaces[agent] = gym.spaces.Box(
                 low=-np.inf, high=np.inf, shape=LocalState.shape
-        )
+            )
 
         # for the priority queue
         self._agent_selector = lambda: self.agents[self.board.pop().bot_id]
 
-
     def reset(self):
-        """
-        """
+        """ """
         self.sim_stats = SimStats()
         self.board.reset()
 
@@ -360,26 +376,31 @@ class PZBoardEnv(AECEnv):
         self.infos = {}
         self.observations = {}
 
-
         for agent in self.agents:
             bot = self.board.bots[self.agent_name_mapping[agent]]
 
-            self.rewards[agent] = 0.
-            self._cumulative_rewards[agent] = 0.
-            self.dones[agent] = self.board.isdone()  # maybe just bot.attarget()?
+            self.rewards[agent] = 0.0
+            self._cumulative_rewards[agent] = 0.0
+            self.dones[
+                agent
+            ] = self.board.isdone()  # maybe just bot.attarget()?
             self.infos[agent] = {}
             self.observations[agent] = bot.state
 
         self.agent_selection = self._agent_selector()
 
     def step(self, action):
-        """
-        """
+        """ """
+        if self.dones[self.agent_selection]:
+            action = None
+            self._was_done_step(action)
+            return None
+
         agent = self.agent_selection
 
         assert action in self.action_spaces[agent], "Invalid action!"
 
-        actions = ['E', 'W', 'N', 'S', '']
+        actions = ["E", "W", "N", "S", ""]
 
         bot = self.board.bots[self.agent_name_mapping[agent]]
 
@@ -396,7 +417,7 @@ class PZBoardEnv(AECEnv):
         self.sim_stats.finished = self.dones[agent]
 
         # if action is not the empty string
-        if actions[action] is not '':
+        if actions[action] != "":
             self.sim_stats.dist_trav += 1
 
         if self.dones[agent]:
@@ -405,7 +426,7 @@ class PZBoardEnv(AECEnv):
 
         # reward does not accumulate: cumulative == instantaneous
         self.rewards[agent] = self.reward_fn(bot)
-        self._cumulative_rewards[agent] = 0.  
+        self._cumulative_rewards[agent] = 0.0
         self._accumulate_rewards()
 
         # pops the agent corresponding to the next bot off the queue and stores
@@ -420,7 +441,7 @@ class PZBoardEnv(AECEnv):
 
         return self.observations[agent]
 
-    def render(self, mode='human'):
+    def render(self, mode="human"):
         pass
 
     def state(self):
@@ -438,5 +459,3 @@ class PZBoardEnv(AECEnv):
         assert agent in self.agents, "Invalid agent!"
 
         return self.action_spaces[agent]
-
-
