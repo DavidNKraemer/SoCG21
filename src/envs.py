@@ -7,6 +7,9 @@ from src.board import DistributedBoard, LocalState
 from cgshop2021_pyutils import Direction, Solution, SolutionStep
 
 
+from pettingzoo import AECEnv
+
+
 def fitness(board_env, dist_trav_pen, time_pen, obs_hit_pen,
             bot_collisions_pen, error_pen, finish_bonus):
     """
@@ -314,3 +317,114 @@ class BoardEnv(gym.Env):
         [Called for side-effects]
         """
         pass
+
+
+class PZBoardEnv(AECEnv):
+
+    def __init__(self, starts, targets, obstacles, instance, reward_fn,
+                 **board_kwargs):
+        self.board = DistributedBoard(starts, targets, obstacles, instance,
+                                      **board_kwargs)
+        
+        n_bots = len(starts)
+        self.agents = [f"bot_{r}" for r in range(n_bots)]
+
+        self.agent_name_mapping = {agent: i for i, agent in enumerate(self.agents)}
+
+        actions = lambda: gym.spaces.Discrete(5)
+
+        self.action_spaces = {agent: actions() for agent in self.agents}
+
+        observations = lambda: gym.spaces.Box(
+            low=-np.inf, high=np.inf, shape=LocalState.shape
+        )
+        self.observation_spaces = {agent: observations() for agent in self.agents}
+
+        self._agent_selector = lambda: self.agents[self.board.pop()]
+
+
+    def reset(self):
+        self.sim_stats = SimStats()
+        self.board.reset()
+
+        self.rewards = {}
+        self._cumulative_rewards = {}
+        self.dones = {}
+        self.infos = {}
+
+        bots = (self.board.bots[self.agent_name_mapping[agent]] for agent in
+                self.agents)
+
+        for agent, bot in zip(self.agents, bots):
+
+            self.rewards[agent] = 0.
+            self._cumulative_rewards[agent] = 0.
+            self.dones[agent] = self.board.isdone()  # maybe just bot.attarget()?
+            self.infos[agent] = {}
+            self.observations[agent] = bot.state
+
+        self.agent_selection = self.agents[self.board.peek()]
+
+    def step(self, action):
+
+        actions = ['E', 'W', 'N', 'S', '']
+
+        agent = self.agent_selection
+        bot = self.board.bots[self.agent_name_mapping[agent]]
+
+        bot.move(actions[action])
+        self.board.insert(bot)
+
+        self.dones[agent] = self.board.isdone()  # maybe just bot.attarget()?
+        self.observations[agent] = bot.state
+
+        # update sim_stats
+        self.sim_stats.bot_collisions += bots_hit(bot)
+        self.sim_stats.obs_hit += obstacles_hit(bot)
+        self.sim_stats.finished = done
+
+        # if action is not the empty string
+        if actions[action] is not '':
+            self.sim_stats.dist_trav += 1
+
+        if self.dones[agent]:
+            self.sim_stats.time = self.board.clock
+            self.sim_stats.compute_l1error(self.board)
+
+        # reward does not accumulate: cumulative == instantaneous
+        self._cumulative_rewards[agent] = 0.  
+        self.rewards[agent] = self.reward_fn(bot)
+        self._accumulate_rewards()
+
+        # pops the agent corresponding to the next bot off the queue and stores
+        # it in the field agent_selection
+        self.agent_selection = self._agent_selector()
+
+    def seed(self, seed=None):
+        pass
+
+    def observe(self, agent):
+        assert agent in self.agents, "Invalid agent!"
+
+        return self.observations[agent]
+
+    def render(self, mode='human'):
+        pass
+
+    def state(self):
+        pass
+
+    def close(self):
+        pass
+
+    def observation_space(self, agent):
+        assert agent in self.agents, "Invalid agent!"
+
+        return self.observation_spaces[agent]
+
+    def action_space(self, agent):
+        assert agent in self.agents, "Invalid agent!"
+
+        return self.action_spaces[agent]
+
+
