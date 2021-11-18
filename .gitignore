@@ -5,6 +5,9 @@
 data/dqn/*
 data/solutions/*
 
+# virtual environment
+socg/
+
 # Byte-compiled / optimized / DLL files
 **__pycache__/
 *.py[cod]
