@@ -381,7 +381,7 @@ class PZBoardEnv(AECEnv):
         # update sim_stats
         self.sim_stats.bot_collisions += bots_hit(bot)
         self.sim_stats.obs_hit += obstacles_hit(bot)
-        self.sim_stats.finished = done
+        self.sim_stats.finished = self.dones[agent]
 
         # if action is not the empty string
         if actions[action] is not '':
