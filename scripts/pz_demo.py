@@ -1,6 +1,9 @@
+import os
 import sys
 
-sys.path.append("/home/logan/Documents/Code/SoCG21/")
+sys.path.append(
+    '..'
+)
 
 import numpy as np
 from src.envs import PZBoardEnv, bot_reward
@@ -29,6 +32,8 @@ def right_policy():
         ri += 1
         return 2
 
+rule = {0: left_policy, 1: right_policy}
+
 
 if __name__ == "__main__":
     starts = np.array([[0, 0], [3, 0]])
@@ -38,6 +43,9 @@ if __name__ == "__main__":
     env.reset()
 
     for i, agent in enumerate(env.agent_iter()):
+        print(i, agent)
         observation, reward, done, info = env.last()
+
+        action = rule[int(agent[-1])]()
 
         env.step(action)
