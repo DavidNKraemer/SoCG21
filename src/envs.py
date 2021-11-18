@@ -323,8 +323,13 @@ class PZBoardEnv(AECEnv):
 
     def __init__(self, starts, targets, obstacles, instance, reward_fn,
                  **board_kwargs):
-        self.board = DistributedBoard(starts, targets, obstacles, instance,
-                                      **board_kwargs)
+        """
+        """
+        self.board = DistributedBoard(
+            starts, targets, obstacles, instance, **board_kwargs
+        )
+
+        self.reward_fn = reward_fn
         
         n_bots = len(starts)
         self.agents = [f"bot_{r}" for r in range(n_bots)]
@@ -344,6 +349,8 @@ class PZBoardEnv(AECEnv):
 
 
     def reset(self):
+        """
+        """
         self.sim_stats = SimStats()
         self.board.reset()
 
@@ -366,6 +373,8 @@ class PZBoardEnv(AECEnv):
         self.agent_selection = self.agents[self.board.peek()]
 
     def step(self, action):
+        """
+        """
 
         actions = ['E', 'W', 'N', 'S', '']
 
