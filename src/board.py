@@ -3,7 +3,7 @@ from collections import defaultdict
 from itertools import product
 import heapq
 from copy import copy, deepcopy
-from cgshop2021_pyutils import Solution, SolutionStep
+# from cgshop2021_pyutils import Solution, SolutionStep
 
 
 MOVES = {
@@ -454,8 +454,8 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         self._snapshot()
 
         # TODO: SoCG wrappers, delete eventually
-        self.solution = Solution(self.instance)
-        self.step = SolutionStep()
+        # self.solution = Solution(self.instance)
+        # self.step = SolutionStep()
 
     def pop(self):
         """
@@ -477,8 +477,8 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
             self.clock = bot.local_clock
 
             # TODO: what are these two SoCG lines?
-            self.solution.add_step(self.step)
-            self.step = SolutionStep()
+            # self.solution.add_step(self.step)
+            # self.step = SolutionStep()
 
         bot.local_clock = self.clock
 
@@ -499,7 +499,7 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         if bot.local_clock > self.clock:
             self.clock = bot.local_clock
             self.solution.add_step(self.step)
-            self.step = SolutionStep()
+            # self.step = SolutionStep()
 
         bot.local_clock = self.clock
 
