@@ -163,30 +163,36 @@ class raw_env(AECEnv):
         bot_id = self.agent_name_mapping[agent]
         self.board.bot_actions[bot_id] = actions[action]
 
-        self.dones[agent] = self.board.isdone()  
+        self.agent_selection = self._agent_selector()
+        # only at the last bot do we actually move, and thereby update
+        # observations
+        if bot_id == len(self.agents) - 1:
+            print("Updating observations!")
+            # update all observations, dones, etc.
 
-        bot = self.board.bots[bot_id]
-        self.observations[agent] = bot.state
+            for agent, bot in zip(self.agents, self.board.bots):
+                self.dones[agent] = self.board.isdone()  
+                self.observations[agent] = bot.state
 
-        # update sim_stats
-        self.sim_stats.bot_collisions += bots_hit(bot)
-        self.sim_stats.obs_hit += obstacles_hit(bot)
-        self.sim_stats.finished = self.dones[agent]
+                # update sim_stats
+                self.sim_stats.bot_collisions += bots_hit(bot)
+                self.sim_stats.obs_hit += obstacles_hit(bot)
+                self.sim_stats.finished = self.dones[agent]
 
-        # if action is not the empty string
-        if actions[action] != "":
-            self.sim_stats.dist_trav += 1
+                # if action is not the empty string
+                if actions[action] != "":
+                    self.sim_stats.dist_trav += 1
 
-        if self.dones[agent]:
-            self.sim_stats.time = self.board.clock
-            self.sim_stats.compute_l1error(self.board)
+                if self.dones[agent]:
+                    self.sim_stats.time = self.board.clock
+                    self.sim_stats.compute_l1error(self.board)
 
-        # reward does not accumulate: cumulative == instantaneous
-        self.rewards[agent] = self.reward_fn(bot)
+                # reward does not accumulate: cumulative == instantaneous
+                self.rewards[agent] = self.reward_fn(bot)
+
         self._cumulative_rewards[agent] = 0.0
         self._accumulate_rewards()
 
-        self.agent_selection = self._agent_selector()
 
     def seed(self, seed=None):
         """

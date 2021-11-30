@@ -420,7 +420,7 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         self.bot_actions = ['' for _ in self.bots]
 
         # reset the clock
-        self.clock = 0
+        self.clock = -1
 
         # init a dict: length-two numpy arrays -> sets of Bot ids
         self.active_pixels = defaultdict(set)
@@ -453,9 +453,12 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         return self.current_bot_id
 
     def update_bots(self):
+        print("Moving bots!")
         for i, bot in enumerate(self.bots):
+            print(f"bot {i} moves {self.bot_actions[i]} from {bot.position} to", end=" ")
             bot.move(self.bot_actions[i])
             self.bot_actions[i] = ''
+            print(f"{bot.position}")
 
 
     def pop(self):
