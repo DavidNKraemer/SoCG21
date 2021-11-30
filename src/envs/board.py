@@ -87,11 +87,9 @@ class raw_env(AECEnv):
             )
 
         # function to select the next agent. this is the mechanism through
-        # which self.agent_iter() moves through the agents. currently, grabs
-        # the agent label associated with a newly-popped bot from the
-        # DistributedBoard priority queue. 
+        # which self.agent_iter() moves through the agents.
         # caution: calling this function modifies the DistributedBoard!
-        self._agent_selector = lambda: self.agents[self.board.pop().bot_id]
+        self._agent_selector = lambda: self.agents[self.board.next_bot_id()]
 
     def reset(self):
         """
@@ -159,18 +157,15 @@ class raw_env(AECEnv):
 
         agent = self.agent_selection
 
-        assert action in self.action_spaces[agent], "Invalid action!"
-
         actions = ["E", "W", "N", "S", ""]
 
         # process the underlying DistributedBoard and Bot object. 
-        bot = self.board.bots[self.agent_name_mapping[agent]]
-        bot.move(actions[action])
-        self.board.insert(bot)  # pushed back onto the priority queue
+        bot_id = self.agent_name_mapping[agent]
+        self.board.bot_moves[bot_id] = actions[action]
 
-        # maybe just bot.attarget()?
         self.dones[agent] = self.board.isdone()  
 
+        bot = self.board.bots[bot_id]
         self.observations[agent] = bot.state
 
         # update sim_stats
@@ -191,8 +186,6 @@ class raw_env(AECEnv):
         self._cumulative_rewards[agent] = 0.0
         self._accumulate_rewards()
 
-        # pops the agent corresponding to the next bot off the queue and stores
-        # it in the field agent_selection
         self.agent_selection = self._agent_selector()
 
     def seed(self, seed=None):
