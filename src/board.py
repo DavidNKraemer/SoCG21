@@ -3,7 +3,6 @@ from collections import defaultdict
 from itertools import product
 import heapq
 from copy import copy, deepcopy
-# from cgshop2021_pyutils import Solution, SolutionStep
 
 
 MOVES = {
@@ -150,7 +149,6 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         self.target = target  # length two numpy array
         self.board = board
         self._local_state = LocalState(self)  # state representer class
-        self.local_clock = 0  # local clock
         self.bot_id = bot_id
         self.prev_position = self.position  # initialize; update with move()
 
@@ -243,9 +241,6 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         for pixel in new_axis:
             # add pixels now in the neighborhood
             self.board.active_pixels[tuple(pixel)].add(self.bot_id)
-
-        # update the local clock
-        self.local_clock += 1
 
     def neighborhood(self, dist):
         """
@@ -400,8 +395,6 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         self.max_clock = kwargs.get('max_clock', None)
         self.bot_type = bot_type
         self.neighborhood_radius = neighborhood_radius
-        self.instance = instance  # TODO: what is this?
-                                  # ANS: ID# (type == int) for SoCG plugin
 
     def _snapshot(self):
         """
@@ -423,10 +416,8 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         for i, (start, target) in enumerate(zip(self._starts, self._targets)):
             self.bots.append(self.bot_type(start, target, self, i))
 
-        # reset the queue
-        self.queue = []  # TODO: do we want the queue in this class?
-                         # i.e., do we want to separate the infinite grid class
-                         # from the distributed board manager class
+        self.current_bot_id = len(self.bots) - 1  # TODO: stupid hack
+        self.bot_actions = ['' for _ in self.bots]
 
         # reset the clock
         self.clock = 0
@@ -448,14 +439,24 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
             self.occupied_pixels[tuple(bot.position)].add(bot.bot_id)
             # TODO: why don't obstacles get added to the occupied_pixels?
 
-            # populate the queue
-            self.insert(bot)
-
         self._snapshot()
 
-        # TODO: SoCG wrappers, delete eventually
-        # self.solution = Solution(self.instance)
-        # self.step = SolutionStep()
+
+    def next_bot_id(self):
+        self.current_bot_id = (self.current_bot_id + 1) % len(self.bots)
+
+        # if we just looped back around to the front
+        if self.current_bot_id == 0:
+            self.clock += 1
+            self.update_bots()
+
+        return self.current_bot_id
+
+    def update_bots(self):
+        for i, bot in enumerate(self.bots):
+            bot.move(self.bot_actions[i])
+            self.bot_actions[i] = ''
+
 
     def pop(self):
         """

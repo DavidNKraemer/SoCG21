@@ -161,7 +161,7 @@ class raw_env(AECEnv):
 
         # process the underlying DistributedBoard and Bot object. 
         bot_id = self.agent_name_mapping[agent]
-        self.board.bot_moves[bot_id] = actions[action]
+        self.board.bot_actions[bot_id] = actions[action]
 
         self.dones[agent] = self.board.isdone()  
 
@@ -209,7 +209,7 @@ class raw_env(AECEnv):
         """
         TODO: Implement
         """
-        pass
+        return self.observations
 
     def close(self):
         pass
