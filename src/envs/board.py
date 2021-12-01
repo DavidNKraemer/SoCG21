@@ -2,7 +2,7 @@ import gym
 import numpy as np
 
 from pettingzoo import AECEnv
-from pettingzoo.utils import wrappers
+from pettingzoo.utils import wrappers, agent_selector
 
 from src.sim_stats import SimStats
 from src.board import DistributedBoard, LocalState
@@ -30,7 +30,7 @@ def env(*args, **kwargs):
 
 class raw_env(AECEnv):
     def __init__(
-        self, starts, targets, obstacles, instance, reward_fn, **board_kwargs
+        self, starts, targets, obstacles, reward_fn, **board_kwargs
     ):
         """ 
         Params
@@ -57,13 +57,12 @@ class raw_env(AECEnv):
         self.metadata = {}
 
         self.board = DistributedBoard(
-            starts, targets, obstacles, instance, **board_kwargs
+            starts, targets, obstacles, **board_kwargs
         )
 
         self.reward_fn = reward_fn
 
         n_bots = len(starts)
-
 
         # list of agents. these are *labels* associated with each agent. once
         # this list is filled, it is not modified.
@@ -86,10 +85,7 @@ class raw_env(AECEnv):
                 low=-np.inf, high=np.inf, shape=LocalState.shape
             )
 
-        # function to select the next agent. this is the mechanism through
-        # which self.agent_iter() moves through the agents.
-        # caution: calling this function modifies the DistributedBoard!
-        self._agent_selector = lambda: self.agents[self.board.next_bot_id()]
+        self._agent_selector = agent_selector(self.agents)
 
     def reset(self):
         """
@@ -111,21 +107,19 @@ class raw_env(AECEnv):
         self.observations = {}
 
         for agent in self.agents:
-
             # grab the associated bot
             bot = self.board.bots[self.agent_name_mapping[agent]]
 
             self.rewards[agent] = 0.0
             self._cumulative_rewards[agent] = 0.0
 
-            # TODO: maybe just bot.attarget()?
             self.dones[agent] = self.board.isdone()  
-
             self.infos[agent] = {}
             self.observations[agent] = bot.state
 
         # grab the first agent from the priority queue
-        self.agent_selection = self._agent_selector()
+        self._agent_selector.reinit(self.agents)
+        self.agent_selection = self._agent_selector.next()
 
     def step(self, action):
         """ 
@@ -136,19 +130,20 @@ class raw_env(AECEnv):
         action: int
             Action for the given bot to move and update the board.
             
-        Caution: The step method does not ask for the agent to update. The
-        agent up to bat is the agent stored in the 'agent_selection' field. The
-        action supplied as a parameter to this method will be applied to that
-        agent. The step method will process the agent, its internal bot
-        representation, update the DistributedBoard accordingly, and set the
-        next agent. Don't do this yourself!
+        Caution
+        -------
+        1. The step method does not ask for the agent to update. The agent up
+           to bat is the agent stored in the 'agent_selection' field. The
+           action supplied as a parameter to this method will be applied to
+           that agent. The step method will process the agent, its internal bot
+           representation, update the DistributedBoard accordingly, and set the
+           next agent. Don't do this yourself!
 
-        Caution: Unlike the gym API, the step method does not return anything!
-        To get the relevant (observation, reward, done, info) tuple, call the
-        last() method.
+        2. Unlike the gym API, the step method does not return anything!  To
+           get the relevant (observation, reward, done, info) tuple, call the
+           last() method.
     
         [Called for side-effects]
-
         """
         if self.dones[self.agent_selection]:
             action = None
@@ -163,11 +158,11 @@ class raw_env(AECEnv):
         bot_id = self.agent_name_mapping[agent]
         self.board.bot_actions[bot_id] = actions[action]
 
-        self.agent_selection = self._agent_selector()
         # only at the last bot do we actually move, and thereby update
         # observations
-        if bot_id == len(self.agents) - 1:
+        if self._agent_selector.is_last():
             print("Updating observations!")
+            self.board.update_bots()
             # update all observations, dones, etc.
 
             for agent, bot in zip(self.agents, self.board.bots):
@@ -190,20 +185,36 @@ class raw_env(AECEnv):
                 # reward does not accumulate: cumulative == instantaneous
                 self.rewards[agent] = self.reward_fn(bot)
 
+        self.agent_selection = self._agent_selector.next()
+        self.board.bot_selection = self.board._bot_selector.next()
+
         self._cumulative_rewards[agent] = 0.0
         self._accumulate_rewards()
 
+    def observation_space(self, agent):
+        return self.observation_spaces[agent]
+
+    def action_space(self, agent):
+        return self.action_spaces[agent]
+
+    def observe(self, agent):
+        """
+        Get the current observation associated with a particular agent.
+
+        Params
+        ------
+        agent: str
+            
+        Returns
+        -------
+        observation
+        """
+        return self.observations[agent]
 
     def seed(self, seed=None):
         """
-        TODO: Implement
         """
-        pass
-
-    def observe(self, agent):
-        assert agent in self.agents, "Invalid agent!"
-
-        return self.observations[agent]
+        raise NotImplementedError
 
     def render(self, mode="human"):
         """
@@ -218,14 +229,8 @@ class raw_env(AECEnv):
         return self.observations
 
     def close(self):
+        """
+        TODO: Implement
+        """
         pass
 
-    def observation_space(self, agent):
-        assert agent in self.agents, "Invalid agent!"
-
-        return self.observation_spaces[agent]
-
-    def action_space(self, agent):
-        assert agent in self.agents, "Invalid agent!"
-
-        return self.action_spaces[agent]

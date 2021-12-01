@@ -4,6 +4,8 @@ from itertools import product
 import heapq
 from copy import copy, deepcopy
 
+from pettingzoo.utils import agent_selector as bot_selector
+
 
 MOVES = {
     "E": np.array([ 1,  0]),
@@ -148,7 +150,7 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         self.position = deepcopy(start)  # length two numpy array
         self.target = target  # length two numpy array
         self.board = board
-        self._local_state = LocalState(self)  # state representer class
+        self._local_state = LocalStateDQN(self)  # state representer class
         self.bot_id = bot_id
         self.prev_position = self.position  # initialize; update with move()
 
@@ -244,7 +246,7 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
 
     def neighborhood(self, dist):
         """
-        Returns a generator of the L_infinity ball of radius `dist`
+        Returns a numpy array of the L_infinity ball of radius `dist`
 
         Params
         ------
@@ -253,11 +255,13 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
 
         Returns
         -------
-        pixels: generator
+        pixels: numpy ndarray shape=((2*dist+1)**2, 2)
             all pixels with L_infinity distance at most `dist`
         """
-        for x, y in product(np.arange(-dist, dist+1), repeat=2):
-            yield self.position + np.array([x,y])
+        x = np.arange(-dist, dist+1)
+        X, Y = np.meshgrid(x, x)
+
+        return self.position + np.c_[X.reshape(-1), Y.reshape(-1)]
 
     def boundary(self, dist):
         """
@@ -274,7 +278,6 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         -------
         pixels: generator
             all pixels with L_infinity distance equalling `dist`
-
         """
         sphere = []
         
@@ -299,51 +302,20 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
 
             sphere += list(tiles) + [corner]
 
-
-        return np.array(sphere)
-
-
-    def priority(self):
-        """
-        Priority value of the bot to be evaluated in the movement queue in
-        the board.
-
-        TODO: make a better priority function, possibly give it over to a
-        learner?
-
-        Returns
-        -------
-        priority_val: float
-            higher iz gooder
-        """
-        return np.linalg.norm(self.target - self.position, ord=1)
-
-    def __lt__(self, other):
-        """
-        Compares bots for ordering in the priority queue.
-
-        Params
-        ------
-        other: Bot
-            to be compared against
-
-        Returns
-        -------
-        True iff self has higher priority than other
-        """
-        return self.priority() > other.priority()
+        return self.position + np.array(sphere)
 
     def __str__(self):
         """
         Print-friendly description string
         """
-        return f"Bot({self.position}, {self.target}, {self.priority()})"
+        return f"Bot(position={self.position}, target={self.target})"
 
     def __repr__(self):
         """
         Debug-friendly info
         """
-        return f"Bot<{id(self)}>(Board<{id(self.board)}>)"
+        return str(self)
+        # return f"Bot<{id(self)}>(Board<{id(self.board)}>)"
 
 
 class BotForDQN(Bot):
@@ -383,8 +355,8 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
     clock
         time-step counter.
     """
-    def __init__(self, starts, targets, obstacles, instance,
-                 bot_type=Bot, neighborhood_radius=1,
+    def __init__(self, starts, targets, obstacles,
+                 bot_type=Bot, neighborhood_radius=2,
                  **kwargs):
         """
         Construct a DistributedBoard object.
@@ -416,11 +388,13 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         for i, (start, target) in enumerate(zip(self._starts, self._targets)):
             self.bots.append(self.bot_type(start, target, self, i))
 
-        self.current_bot_id = len(self.bots) - 1  # TODO: stupid hack
+        self._bot_selector = bot_selector(self.bots)
+        self.selected_bot = self._bot_selector.next()
+
         self.bot_actions = ['' for _ in self.bots]
 
         # reset the clock
-        self.clock = -1
+        self.clock = 0
 
         # init a dict: length-two numpy arrays -> sets of Bot ids
         self.active_pixels = defaultdict(set)
@@ -441,84 +415,14 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
 
         self._snapshot()
 
-
-    def next_bot_id(self):
-        self.current_bot_id = (self.current_bot_id + 1) % len(self.bots)
-
-        # if we just looped back around to the front
-        if self.current_bot_id == 0:
-            self.clock += 1
-            self.update_bots()
-
-        return self.current_bot_id
-
     def update_bots(self):
-        print("Moving bots!")
-        for i, bot in enumerate(self.bots):
-            print(f"bot {i} moves {self.bot_actions[i]} from {bot.position} to", end=" ")
-            bot.move(self.bot_actions[i])
-            self.bot_actions[i] = ''
-            print(f"{bot.position}")
-
-
-    def pop(self):
         """
-        Pops the next bot from the queue and returns it. During processing,
-        we also manage the board's clock and the bot's local clock.
-
-        See https://github.com/DavidNKraemer/SoCG21/issues/3#issue-784378247
-        for details of this implementation.
-
-        Returns
-        -------
-        next_bot: Bot
-            the bot with the highest priority
         """
-        bot = heapq.heappop(self.queue)
-        self._snapshot()
+        self.clock += 1
 
-        if bot.local_clock > self.clock:
-            self.clock = bot.local_clock
-
-            # TODO: what are these two SoCG lines?
-            # self.solution.add_step(self.step)
-            # self.step = SolutionStep()
-
-        bot.local_clock = self.clock
-
-        return bot
-
-    def peek(self):
-        """
-        Returns the next bot from the queue without removing it. During
-        processing, the board's clock and the bot's local clock is updated.
-        """
-        bot = self.queue[0]  # in Python heapq, the 0th element is always the
-                               # one with the highest priority
-        self._snapshot()
-
-        # TODO: is updating the clock here appropriate?
-        # if so, perhaps abstract the if clause in this and the previous method
-        # into its own method
-        if bot.local_clock > self.clock:
-            self.clock = bot.local_clock
-            self.solution.add_step(self.step)
-            # self.step = SolutionStep()
-
-        bot.local_clock = self.clock
-
-        return bot
-
-    def insert(self, bot):
-        """
-        Inserts an bot from the queue and returns it
-
-        Params
-        -------
-        bot: Bot
-            the bot to be inserted into the queue
-        """
-        heapq.heappush(self.queue, bot)
+        for bot_id, bot in enumerate(self.bots):
+            bot.move(self.bot_actions[bot_id])
+            self.bot_actions[bot_id] = ''
 
     def isdone(self):
         """
@@ -653,23 +557,28 @@ class LocalStateDQN:
         self.neighborhood_radius = self.board.neighborhood_radius
         self.side_length = 2 * self.neighborhood_radius + 1
 
-    def _is_row_in(self, arr, mat):
+        # cartesian coordinates of the bottom left corner of the neighborhood
+        self.offset = self.bot.position - np.full(self.bot.position.shape,
+                                                  self.neighborhood_radius)
+
+
+    def _is_row_in(self, arr, rows):
         """
         Check if a 1D numpy array is a row in a 2D numpy array.
         """
-        return np.any([np.array_equal(arr, row) for row in mat])
+        return (arr == rows).all(axis=1).any()
 
     @property
     def state(self):
         state = np.zeros((3, self.side_length, self.side_length))
-
-        neighborhood = np.array(
-            list(self.bot.neighborhood(self.neighborhood_radius))
-        )
-
         # cartesian coordinates of the bottom left corner of the neighborhood
-        offset = self.bot.position - np.array([self.neighborhood_radius,
-                                               self.neighborhood_radius])
+        self.offset = self.bot.position - np.full(self.bot.position.shape,
+                                                  self.neighborhood_radius)
+
+
+        BOTS, OBSTACLES, DIRECTION = 0, 1, 2
+
+        neighborhood = self.bot.neighborhood(self.neighborhood_radius)
 
         for pixel in neighborhood:
             # add number of bots to each pixel in first image
@@ -682,17 +591,17 @@ class LocalStateDQN:
             for bot_id in self.board.occupied_pixels[tuple(pixel)]:
                 bot = self.board.bots[bot_id]
                 if self.bot.bot_id != bot_id:
-                    indices = 0, *(bot.position - offset)
+                    indices = BOTS, *(bot.position - self.offset)
                     state[indices] += 1
 
             # add obstacles to second image
-            indices = 1, *(pixel - offset)
-            state[indices] = int(pixel in self.board.obstacles)
+            indices = OBSTACLES, *(pixel - self.offset)
+            state[indices] = (self.board.obstacles == pixel).all(axis=1).sum()
 
         # add target direction to third image, projecting onto neighborhood
         # if necessary
         if self._is_row_in(self.bot.target, neighborhood):
-            indices = 2, *(self.bot.target - offset)
+            indices = DIRECTION, *(self.bot.target - self.offset)
             state[indices] = 1
         else:
             # TODO: only need to project on the *boundary* (which is Omega(n)) of
@@ -706,7 +615,7 @@ class LocalStateDQN:
             boundary = self.bot.boundary(self.neighborhood_radius)
             distances = np.linalg.norm(boundary - intersection, axis=1, ord=2)
 
-            indices = 2, *(boundary[np.argmin(distances)] - offset)
+            indices = DIRECTION, *(boundary[np.argmin(distances)] - self.offset)
             state[indices] = 1
 
         # flip each image, as images were modified upside-down
