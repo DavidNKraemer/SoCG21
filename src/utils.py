@@ -2,6 +2,7 @@ import numpy as np
 
 from itertools import product
 
+
 def obstacles_hit(bot):
     """
     Return the number of obstacles with which the specified bot collided
@@ -14,7 +15,7 @@ def obstacles_hit(bot):
     """
     # obstacles don't move. Collision occurred in previous time-step iff
     # bot's position in present time-step is an obstacle pixel.
-    return int(bot.position in bot.board.obstacles)
+    return (bot.position == bot.board.obstacles).all(axis=1).sum()
 
 
 def bots_hit(bot):
@@ -22,7 +23,7 @@ def bots_hit(bot):
     Return the number of other bots with which the specified bot collided
     over the previous time-step.
     """
-    # a collision occurred iff in bot's neighborhood, another bot a' moved
+    # a collision occurred iff in bot's neighborhood, another bot moved
     # cardinal directions (i.e., from N to E, from S to N, from E to N, etc.)
     # TODO: import the dictionary from board.py
     N = np.array([0, 1])
@@ -30,35 +31,27 @@ def bots_hit(bot):
     W = np.array([-1, 0])
     E = np.array([1, 0])
 
-    # number of other bots sharing the same pixel as bot
+    # number of other bots sharing the same pixel as bot; excluding bot itself
     n_collisions = len(bot.board.occupied_pixels[tuple(bot.position)]) - 1
-    # DEBUG
-    # print(f"Position: {bot.board.occupied_pixels[tuple(bot.position)]}")
 
     for direction, other_direction in product([N, S, W, E], [N, S, W, E]):
-        if direction is other_direction:
+        # two adjacent bots move in the same direction; no collision
+        if (direction == other_direction).all():
             continue
-
-        # DEBUG
-        # print("direction: ", bot.board.prev_active_pixels[
-        #    tuple(bot.prev_position + direction)])
 
         # store set of bot ids occupying this pixel at previous time-step
         prev_ids = bot.board.prev_occupied_pixels[
             tuple(bot.prev_position + direction)
         ]
 
-        # DEBUG
-        # print("other_direction: ", bot.board.prev_active_pixels[
-        #    tuple(bot.position + other_direction)])
-
         # store set of bot ids occupying this pixel at current time-step
         curr_ids = bot.board.occupied_pixels[
             tuple(bot.position + other_direction)
         ]
         # take intersection of two sets, and increment by cardinality
-        # print(f"Intersection: {curr_ids & prev_ids}")
         n_collisions += len(curr_ids & prev_ids)
+
+    breakpoint()
 
     return n_collisions
 
@@ -97,15 +90,15 @@ def bot_reward(bot, dist_pen, obs_hit_pen, bots_hit_pen, finish_bonus):
     # dist_to_go() returns the l_1 distance between an bot's position
     # and its target, ignoring intermediate obstacles and other bots that
     # might be in the way. See board.py's Bot class.
-    return finish_bonus * bot.attarget() - (
+    linear_combination = finish_bonus * bot.attarget() - (
         dist_pen * bot.dist_to_go
         + obs_hit_pen * obstacles_hit(bot)
         + bots_hit_pen * bots_hit(bot)
     )
+    return linear_combination
 
 
-# TODO: decide if we need this function
-def board_reward(board, alpha, beta, gamma):
+def board_reward(board, alpha, beta, gamma, finish_bonus):
     """
     Given a DistributedBoard, return the "instantaneous" reward signal.
 
@@ -124,13 +117,15 @@ def board_reward(board, alpha, beta, gamma):
 
     Returns
     -------
-    reward: float
-        Instantaneous reward signal
+    total_reward: float
+        Instantaneous, global (i.e., aggregated) reward signal.
 
     Preconditions
     -------------
     board.reset() has already been called
     """
-    return 1  # TODO: unneeded?
+    total_reward = 0
+    for bot in board.bots:
+        total_reward += bot_reward(bot, alpha, beta, gamma, finish_bonus)
 
-
+    return total_reward  # / len(board.bots)

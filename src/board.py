@@ -8,11 +8,11 @@ from pettingzoo.utils import agent_selector as bot_selector
 
 
 MOVES = {
-    "E": np.array([ 1,  0]),
-    "W": np.array([-1,  0]),
-    "N": np.array([ 0,  1]),
-    "S": np.array([ 0, -1]),
-    "":  np.array([ 0,  0]),
+    "E": np.array([1, 0]),
+    "W": np.array([-1, 0]),
+    "N": np.array([0, 1]),
+    "S": np.array([0, -1]),
+    "": np.array([0, 0]),
 }
 
 
@@ -53,12 +53,12 @@ def get_pixels(direction, radius):
         return np.array([[]]).reshape(-1, 2)
 
     pixels = []
-    parallel = (direction != 0).astype(np.int) # parallel axis
+    parallel = (direction != 0).astype(np.int)  # parallel axis
     sign = int(direction[parallel == 1])
     orthogonal = (direction == 0).astype(np.int)  # orthogonal axis
 
     for i in range(1, radius + 1):
-        for j in range(-radius, radius+1):
+        for j in range(-radius, radius + 1):
             pixels.append(list(sign * i * parallel + j * orthogonal))
 
     return np.array(pixels)
@@ -108,15 +108,15 @@ class DumbPolicy:
 
         # horizontal displacement
         if horiz != 0:
-            return 'E' if horiz > 0 else 'W'
+            return "E" if horiz > 0 else "W"
 
         # vertical displacement
         elif vert != 0:
-            return 'N' if vert > 0 else 'S'
+            return "N" if vert > 0 else "S"
 
         # if no displacement, just stay put
         else:
-            return ''
+            return ""
 
 
 class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
@@ -144,14 +144,17 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
     clock
         time-step counter.
     """
-    def __init__(self, starts, targets, obstacles, neighborhood_radius=2, **kwargs):
+
+    def __init__(
+        self, starts, targets, obstacles, neighborhood_radius=2, **kwargs
+    ):
         """
         Construct a DistributedBoard object.
         """
         self._starts = starts
         self._targets = targets
         self.obstacles = obstacles  # Set of length-two numpy arrays
-        self.max_clock = kwargs.get('max_clock', None)
+        self.max_clock = kwargs.get("max_clock", None)
         self.neighborhood_radius = neighborhood_radius
 
         self._obs_shape = Bot.StateRepresentation.shape(neighborhood_radius)
@@ -179,7 +182,7 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         self._bot_selector = bot_selector(self.bots)
         self.selected_bot = self._bot_selector.next()
 
-        self.bot_actions = ['' for _ in self.bots]
+        self.bot_actions = ["" for _ in self.bots]
 
         # reset the clock
         self.clock = 0
@@ -204,13 +207,12 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         self._snapshot()
 
     def update_bots(self):
-        """
-        """
+        """ """
         self.clock += 1
 
         for bot_id, bot in enumerate(self.bots):
             bot.move(self.bot_actions[bot_id])
-            self.bot_actions[bot_id] = ''
+            self.bot_actions[bot_id] = ""
 
     def isdone(self):
         """
@@ -222,8 +224,9 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         """
         targets_reached = all(bot.attarget() for bot in self.bots)
 
-        clock_expired = False if self.max_clock is None else \
-            self.clock >= self.max_clock
+        clock_expired = (
+            False if self.max_clock is None else self.clock >= self.max_clock
+        )
 
         return clock_expired or targets_reached
 
@@ -250,6 +253,7 @@ class LocalState:
     """
     Local state information for one Bot.
     """
+
     @staticmethod
     def shape(radius):
         length = 2 * radius + 1
@@ -295,7 +299,8 @@ class LocalState:
 
         # for every pixel in the neighborhood
         for index, pixel in enumerate(
-            self.bot.neighborhood(self.neighborhood_radius)):
+            self.bot.neighborhood(self.neighborhood_radius)
+        ):
             # check if the pixel is occupied by an obstacle
             neighborhood[index, OBSTACLES] = int(pixel in self.board.obstacles)
 
@@ -306,8 +311,11 @@ class LocalState:
                 # position pixel
                 if self.bot.bot_id != bot_id:
                     other = self.board.bots[bot_id]
-                    i, j = cart_to_imag(self.bot.position, other.position,
-                                        self.neighborhood_radius)
+                    i, j = cart_to_imag(
+                        self.bot.position,
+                        other.position,
+                        self.neighborhood_radius,
+                    )
                     square_nbd[i, j, BOTS] += 1
 
         return np.r_[
@@ -349,7 +357,6 @@ class LocalStateDQN:
 
         return (3, length, length)
 
-
     def __init__(self, bot):
         self.bot = bot
         self.board = self.bot.board
@@ -357,11 +364,11 @@ class LocalStateDQN:
         self.side_length = 2 * self.neighborhood_radius + 1
 
         # cartesian coordinates of the bottom left corner of the neighborhood
-        self.offset = self.bot.position - np.full(self.bot.position.shape,
-                                                  self.neighborhood_radius)
+        self.offset = self.bot.position - np.full(
+            self.bot.position.shape, self.neighborhood_radius
+        )
 
         self.shape = (3, self.side_length, self.side_length)
-
 
     def _is_row_in(self, arr, rows):
         """
@@ -373,9 +380,9 @@ class LocalStateDQN:
     def state(self):
         state = np.zeros((3, self.side_length, self.side_length))
         # cartesian coordinates of the bottom left corner of the neighborhood
-        self.offset = self.bot.position - np.full(self.bot.position.shape,
-                                                  self.neighborhood_radius)
-
+        self.offset = self.bot.position - np.full(
+            self.bot.position.shape, self.neighborhood_radius
+        )
 
         BOTS, OBSTACLES, DIRECTION = 0, 1, 2
 
@@ -386,8 +393,8 @@ class LocalStateDQN:
 
             # Wes: should the below line be occupied_pixels[tuple(pixel)],
             # or is it okay as-is? Just double-checking... I do not want to
-            # pre-emptively influence your opinion. 
-            # 
+            # pre-emptively influence your opinion.
+            #
             # ANSWER (10/26/21): should be occupied_pixels
             for bot_id in self.board.occupied_pixels[tuple(pixel)]:
                 bot = self.board.bots[bot_id]
@@ -412,7 +419,10 @@ class LocalStateDQN:
             diff = self.bot.target - self.bot.position
             linf_dist = np.abs(diff).max()
 
-            intersection = self.bot.position + (self.neighborhood_radius / linf_dist) * diff
+            intersection = (
+                self.bot.position
+                + (self.neighborhood_radius / linf_dist) * diff
+            )
             boundary = self.bot.boundary(self.neighborhood_radius)
             distances = np.linalg.norm(boundary - intersection, axis=1, ord=2)
 
@@ -421,7 +431,6 @@ class LocalStateDQN:
 
         # flip each image, as images were modified upside-down
         return np.flip(np.transpose(state, axes=(0, 2, 1)), axis=1)
-
 
 
 class Bot:  # TODO: rename!  Current candidate: "Bot"
@@ -433,6 +442,7 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         -target: target coordinate pair;
         -neighborhood: representation of the surrounding 9 pixels.
     """
+
     StateRepresentation = LocalStateDQN
 
     def __init__(self, start, target, board, bot_id):
@@ -457,7 +467,9 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         self.position = deepcopy(start)  # length two numpy array
         self.target = target  # length two numpy array
         self.board = board
-        self._local_state = Bot.StateRepresentation(self)  # state representer class
+        self._local_state = Bot.StateRepresentation(
+            self
+        )  # state representer class
         self.bot_id = bot_id
         self.prev_position = self.position  # initialize; update with move()
 
@@ -484,9 +496,8 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         the way! We return only the l_1 distance between two pixels. Nothing
         fancy is done w.r.t. obstacle avoidance.
         """
-        # return np.linalg.norm(self.target - self.position, ord=1)
-        diff = self.target - self.position
-        return diff @ diff
+        dist = np.linalg.norm(self.target - self.position, ord=1)
+        return dist
 
     def attarget(self):
         """
@@ -565,7 +576,7 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         pixels: numpy ndarray shape=((2*dist+1)**2, 2)
             all pixels with L_infinity distance at most `dist`
         """
-        x = np.arange(-dist, dist+1)
+        x = np.arange(-dist, dist + 1)
         X, Y = np.meshgrid(x, x)
 
         return self.position + np.c_[X.reshape(-1), Y.reshape(-1)]
@@ -587,7 +598,7 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
             all pixels with L_infinity distance equalling `dist`
         """
         sphere = []
-        
+
         directions = np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
         next_directions = np.roll(directions, 1, axis=0)
 
@@ -635,4 +646,3 @@ class BotForDQN(Bot):
         super().__init__(start, target, board, bot_id)
 
         self._local_state = LocalStateDQN(self)
-
