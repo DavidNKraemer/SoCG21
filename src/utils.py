@@ -48,10 +48,9 @@ def bots_hit(bot):
         curr_ids = bot.board.occupied_pixels[
             tuple(bot.position + other_direction)
         ]
+
         # take intersection of two sets, and increment by cardinality
         n_collisions += len(curr_ids & prev_ids)
-
-    breakpoint()
 
     return n_collisions
 
@@ -98,7 +97,7 @@ def bot_reward(bot, dist_pen, obs_hit_pen, bots_hit_pen, finish_bonus):
     return linear_combination
 
 
-def board_reward(board, alpha, beta, gamma, finish_bonus):
+def board_reward(board, dist_pen, obs_hit_pen, bots_hit_pen, finish_bonus):
     """
     Given a DistributedBoard, return the "instantaneous" reward signal.
 
@@ -108,12 +107,14 @@ def board_reward(board, alpha, beta, gamma, finish_bonus):
     ------
     board: DistributedBoard
         Game board whose state determines the reward signal.
-    alpha: float
+    dist_pen: float
         Penalty multiplier for distance-to-go.
-    beta: float
-        Pentalty multiplier for hitting an obstacle.
-    gamma: float
-        Penalty multiplier for hitting another bot.
+    obs_hit_pen: float
+        Penalty multiplier for hitting an obstacle.
+    bots_hit_pen: float
+        Penalty multiplier for a bot collision.
+    finish_bonus: float
+        Reward for reaching one's target.
 
     Returns
     -------
@@ -126,6 +127,8 @@ def board_reward(board, alpha, beta, gamma, finish_bonus):
     """
     total_reward = 0
     for bot in board.bots:
-        total_reward += bot_reward(bot, alpha, beta, gamma, finish_bonus)
+        total_reward += bot_reward(
+            bot, dist_pen, obs_hit_pen, bots_hit_pen, finish_bonus
+        )
 
     return total_reward  # / len(board.bots)

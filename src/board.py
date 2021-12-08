@@ -208,6 +208,7 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
 
     def update_bots(self):
         """ """
+        self._snapshot()
         self.clock += 1
 
         for bot_id, bot in enumerate(self.bots):
@@ -471,7 +472,9 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
             self
         )  # state representer class
         self.bot_id = bot_id
-        self.prev_position = self.position  # initialize; update with move()
+        self.prev_position = copy(
+            self.position
+        )  # initialize; update with move()
 
     @property
     def state(self):

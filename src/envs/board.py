@@ -3,6 +3,7 @@ import numpy as np
 
 from pettingzoo import AECEnv
 from pettingzoo.utils import wrappers, agent_selector
+from src.envs.wrappers import gym_board_env
 
 from src.sim_stats import SimStats
 from src.board import DistributedBoard, LocalState
@@ -52,9 +53,10 @@ class raw_env(AECEnv):
             starts, targets, obstacles, **board_kwargs
         )
 
-        alpha, beta, gamma, finish_bonus = 0, 0, 1.0, 0  # 1.0, 1.5, 2.0, 10.0
+        # hard-code bot reward function
+        dist_pen, obs_hit_pen, bots_hit_pen, finish_bonus = 1.0, 5.0, 5.0, 10.0
         self.reward_fn = lambda board: board_reward(
-            board, alpha, beta, gamma, finish_bonus
+            board, dist_pen, obs_hit_pen, bots_hit_pen, finish_bonus
         )
 
         n_bots = len(starts)
@@ -170,25 +172,29 @@ class raw_env(AECEnv):
                 self.observations[agent] = bot.state
 
                 # update sim_stats
-                self.sim_stats.bot_collisions += bots_hit(bot)
-                self.sim_stats.obs_hit += obstacles_hit(bot)
-                self.sim_stats.finished = self.dones[agent]
+                # self.sim_stats.bot_collisions += bots_hit(bot)
+                # self.sim_stats.obs_hit += obstacles_hit(bot)
+                # self.sim_stats.finished = self.dones[agent]
 
                 # if action is not the empty string
-                if actions[action] != "":
-                    self.sim_stats.dist_trav += 1
+                # if actions[action] != "":
+                #    self.sim_stats.dist_trav += 1
 
-                if self.dones[agent]:
-                    self.sim_stats.time = self.board.clock
-                    self.sim_stats.compute_l1error(self.board)
+                # if self.dones[agent]:
+                #    self.sim_stats.time = self.board.clock
+                #    self.sim_stats.compute_l1error(self.board)
 
                 # reward does not accumulate: cumulative == instantaneous
+                # update all agents' rewards
                 self.rewards[agent] = self.reward_fn(self.board)
 
         self.agent_selection = self._agent_selector.next()
         self.board.bot_selection = self.board._bot_selector.next()
 
-        self._cumulative_rewards[agent] = 0.0
+        # zero-out cumulative rewards for all agents
+        for agent in self.agents:
+            self._cumulative_rewards[agent] = 0.0
+
         self._accumulate_rewards()
 
     def observation_space(self, agent):
@@ -232,3 +238,6 @@ class raw_env(AECEnv):
         TODO: Implement
         """
         pass
+
+    def to_gym(self):
+        return gym_board_env(self)

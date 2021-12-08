@@ -2,7 +2,6 @@ import gym
 
 
 class gym_board_env(gym.Env):
-
     def __init__(self, env):
         self.pz_env = env
         self.raw_pz_env = self.pz_env.unwrapped
@@ -27,11 +26,13 @@ class gym_board_env(gym.Env):
         done: bool
         info: dict
         """
+        assert self.action_space.contains(actions), "Try a dict"
 
-        for action in actions:
-            self.pz_env.step(action)
+        for agent in self.pz_env.agent_iter(max_iter=len(self.pz_env.agents)):
+            self.pz_env.step(actions[agent])
 
         done = self.board.isdone()
+        # centralized training: one agent
         reward = self.raw_pz_env.rewards[self.raw_pz_env.agents[0]]
 
         return self.state, reward, done, {}
@@ -39,4 +40,3 @@ class gym_board_env(gym.Env):
     @property
     def state(self):
         return self.raw_pz_env.observations
-
