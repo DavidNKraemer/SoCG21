@@ -66,26 +66,29 @@ class raw_env(AECEnv):
 
         # list of agents. these are *labels* associated with each agent. once
         # this list is filled, it is not modified.
-        self.agents = []  
+        self.possible_agents = [f'bot_{agent_id}' for agent_id in range(n_bots)]
+        agents = self.possible_agents
 
         # dictionary mapping agent (labels) to ids.
-        self.agent_name_mapping = {}
+        self.agent_name_mapping = {
+            agent: agent_id for agent_id, agent in enumerate(agents)
+        }
 
         # dictionary mapping agent (labels) to action spaces.
-        self.action_spaces = {}
+        self.action_spaces = gym.spaces.Dict({
+            agent: gym.spaces.Discrete(5) for agent in agents
+        })
 
         # dictionary mapping aggent (labels) to observation spaces.
-        self.observation_spaces = {}
-        for agent_id in range(n_bots):
-            agent = f'bot_{agent_id}'
-            self.agents.append(agent)
-            self.agent_name_mapping[agent] = agent_id 
-            self.action_spaces[agent] = gym.spaces.Discrete(5)
-            self.observation_spaces[agent] = gym.spaces.Box(
-                low=-np.inf, high=np.inf, shape=LocalState.shape
+        self.observation_spaces = gym.spaces.Dict({
+            agent: gym.spaces.Box(
+                low=-np.inf, high=np.inf,
+                shape=self.board._obs_shape
             )
+            for agent in agents
+        })
 
-        self._agent_selector = agent_selector(self.agents)
+        self._agent_selector = agent_selector(agents)
 
     def reset(self):
         """
@@ -105,6 +108,8 @@ class raw_env(AECEnv):
         self.dones = {}
         self.infos = {}
         self.observations = {}
+
+        self.agents = self.possible_agents.copy()
 
         for agent in self.agents:
             # grab the associated bot
@@ -161,7 +166,6 @@ class raw_env(AECEnv):
         # only at the last bot do we actually move, and thereby update
         # observations
         if self._agent_selector.is_last():
-            print("Updating observations!")
             self.board.update_bots()
             # update all observations, dones, etc.
 

@@ -119,6 +119,311 @@ class DumbPolicy:
             return ''
 
 
+class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
+    """
+    A distributed state-representation comprised of Bots and some auxilliary,
+    global bookeeping.
+
+    Fields
+    ------
+    bots
+        a list of Bots;
+    obstacles
+        a list of pixels that are blocked-off and can't be used;
+    active_pixels
+        defaultdict: pixels -> Set[int]. These are pixels either occupied by
+        bots *or* those within bots' local neighborhoods;
+    prev_active_pixels
+        active_pixels as seen in the previous (board-clock) time-step;
+    occupied_pixels
+        defaultdict: pixels -> Set[int]. These are pixels occupied by bots.
+    prev_occupied_pixels
+        occupied_pixels as seen in the previous (board-clock) time-step;
+    queue
+        heap used to handle orders in which bots are to move;
+    clock
+        time-step counter.
+    """
+    def __init__(self, starts, targets, obstacles, neighborhood_radius=2, **kwargs):
+        """
+        Construct a DistributedBoard object.
+        """
+        self._starts = starts
+        self._targets = targets
+        self.obstacles = obstacles  # Set of length-two numpy arrays
+        self.max_clock = kwargs.get('max_clock', None)
+        self.neighborhood_radius = neighborhood_radius
+
+        self._obs_shape = Bot.StateRepresentation.shape(neighborhood_radius)
+
+    def _snapshot(self):
+        """
+        Stash current timestep info.
+
+        Allows recovery of local neighborhood of a given bot from the stashed
+        timestep.
+        """
+        self.prev_active_pixels = deepcopy(self.active_pixels)
+        self.prev_occupied_pixels = deepcopy(self.occupied_pixels)
+
+    def reset(self):
+        """
+        Resets the DistributedBoard, useful for reusing the same object for gym
+        environment.
+        """
+        # initialize all the bots to original start/target info
+        self.bots = []
+        for i, (start, target) in enumerate(zip(self._starts, self._targets)):
+            self.bots.append(Bot(start, target, self, i))
+
+        self._bot_selector = bot_selector(self.bots)
+        self.selected_bot = self._bot_selector.next()
+
+        self.bot_actions = ['' for _ in self.bots]
+
+        # reset the clock
+        self.clock = 0
+
+        # init a dict: length-two numpy arrays -> sets of Bot ids
+        self.active_pixels = defaultdict(set)
+
+        # init a dict: tuple -> sets of Bot ids
+        self.occupied_pixels = defaultdict(set)
+
+        # values are bot ids
+        for bot in self.bots:
+            # activate pixels
+            for pixel in bot.neighborhood(self.neighborhood_radius):
+                # this is the intended use of active_pixels
+                self.active_pixels[tuple(pixel)].add(bot.bot_id)
+
+            # occupied pixels
+            self.occupied_pixels[tuple(bot.position)].add(bot.bot_id)
+            # TODO: why don't obstacles get added to the occupied_pixels?
+
+        self._snapshot()
+
+    def update_bots(self):
+        """
+        """
+        self.clock += 1
+
+        for bot_id, bot in enumerate(self.bots):
+            bot.move(self.bot_actions[bot_id])
+            self.bot_actions[bot_id] = ''
+
+    def isdone(self):
+        """
+        Returns whether all bots have found their target
+
+        Returns
+        -------
+        True iff every bot is at its target position
+        """
+        targets_reached = all(bot.attarget() for bot in self.bots)
+
+        clock_expired = False if self.max_clock is None else \
+            self.clock >= self.max_clock
+
+        return clock_expired or targets_reached
+
+
+def cart_to_imag(origin, position, radius):
+    """
+    Cartesian coordinates to image coordinates
+
+    Params
+    ------
+    origin: numpy ndarray
+    position: numpy ndarray
+    radius: int
+    """
+    diff = position - origin
+    imag_diff = np.array([-diff[1], diff[0]])
+
+    array_center = np.full(imag_diff.shape, radius)
+
+    return array_center + imag_diff
+
+
+class LocalState:
+    """
+    Local state information for one Bot.
+    """
+    @staticmethod
+    def shape(radius):
+        length = 2 * radius + 1
+        return (2 * length * length + 4,)
+
+    def __init__(self, bot):
+        """
+        Each object is attached ("privately", no need for external use) to a
+        single bot.
+
+        Return
+        ------
+        bot: Bot
+        """
+        self.bot = bot
+        self.board = self.bot.board
+        self.neighborhood_radius = self.board.neighborhood_radius
+
+    @property
+    def state(self):
+        """
+        Encode current position, target position, and neighborhood.
+
+        Current features:
+            * for every tile in the neighborhood of the bot, return the
+              number of bots occupying the tile as well as whether an
+              obstacle is occupying the tile
+            * current location of the bot
+            * target location of the bot
+
+        TODO: make more interesting
+
+        Returns
+        -------
+        encoded_state: nump ndarray
+        """
+        n = 2 * self.neighborhood_radius + 1
+
+        neighborhood = np.zeros((n * n, 2))
+        square_nbd = neighborhood.view().reshape((n, n, 2))
+
+        BOTS, OBSTACLES = 0, 1
+
+        # for every pixel in the neighborhood
+        for index, pixel in enumerate(
+            self.bot.neighborhood(self.neighborhood_radius)):
+            # check if the pixel is occupied by an obstacle
+            neighborhood[index, OBSTACLES] = int(pixel in self.board.obstacles)
+
+            # for every (other) bot in the active_pixels set corresponding to
+            # the corresponding pixel
+            for bot_id in self.board.occupied_pixels[tuple(pixel)]:
+                # if the other bot is in the neighborhood, increment that
+                # position pixel
+                if self.bot.bot_id != bot_id:
+                    other = self.board.bots[bot_id]
+                    i, j = cart_to_imag(self.bot.position, other.position,
+                                        self.neighborhood_radius)
+                    square_nbd[i, j, BOTS] += 1
+
+        return np.r_[
+            self.bot.position, self.bot.target, neighborhood.reshape(-1)
+        ]
+
+
+class LocalStateDQN:
+    """
+    Local state representation for a single Bot for use in DQN.
+
+    Each state is a stack, or tensor, of 3 square images composed of pixels,
+    centered on the Bot. Each image in the stack represents a different
+    piece of information: the number of neighboring Bots occupying nearby
+    pixels, a map of nearby obstacles, direction to the Bot's target, etc.
+
+    In the case where side length is 3 pixels, an example state is:
+
+        [[[0, 0, 0],
+          [0, 1, 0],
+          [0, 0, 0]],
+
+         [[1, 0, 0],
+          [0, 0, 0],
+          [0, 0, 0]],
+
+         [[0, 0, 1],
+          [0, 0, 0],
+          [0, 0, 0]]]
+
+    where the first image gives the bot neighborhood, the second gives
+    the obstacle neighborhood, and the third has a 1 in the direction of the
+    Bot's target.
+    """
+
+    @staticmethod
+    def shape(radius):
+        length = 2 * radius + 1
+
+        return (3, length, length)
+
+
+    def __init__(self, bot):
+        self.bot = bot
+        self.board = self.bot.board
+        self.neighborhood_radius = self.board.neighborhood_radius
+        self.side_length = 2 * self.neighborhood_radius + 1
+
+        # cartesian coordinates of the bottom left corner of the neighborhood
+        self.offset = self.bot.position - np.full(self.bot.position.shape,
+                                                  self.neighborhood_radius)
+
+        self.shape = (3, self.side_length, self.side_length)
+
+
+    def _is_row_in(self, arr, rows):
+        """
+        Check if a 1D numpy array is a row in a 2D numpy array.
+        """
+        return (arr == rows).all(axis=1).any()
+
+    @property
+    def state(self):
+        state = np.zeros((3, self.side_length, self.side_length))
+        # cartesian coordinates of the bottom left corner of the neighborhood
+        self.offset = self.bot.position - np.full(self.bot.position.shape,
+                                                  self.neighborhood_radius)
+
+
+        BOTS, OBSTACLES, DIRECTION = 0, 1, 2
+
+        neighborhood = self.bot.neighborhood(self.neighborhood_radius)
+
+        for pixel in neighborhood:
+            # add number of bots to each pixel in first image
+
+            # Wes: should the below line be occupied_pixels[tuple(pixel)],
+            # or is it okay as-is? Just double-checking... I do not want to
+            # pre-emptively influence your opinion. 
+            # 
+            # ANSWER (10/26/21): should be occupied_pixels
+            for bot_id in self.board.occupied_pixels[tuple(pixel)]:
+                bot = self.board.bots[bot_id]
+                if self.bot.bot_id != bot_id:
+                    indices = BOTS, *(bot.position - self.offset)
+                    state[indices] += 1
+
+            # add obstacles to second image
+            indices = OBSTACLES, *(pixel - self.offset)
+            state[indices] = (self.board.obstacles == pixel).all(axis=1).sum()
+
+        # add target direction to third image, projecting onto neighborhood
+        # if necessary
+        if self._is_row_in(self.bot.target, neighborhood):
+            indices = DIRECTION, *(self.bot.target - self.offset)
+            state[indices] = 1
+        else:
+            # TODO: only need to project on the *boundary* (which is Omega(n)) of
+            # the neighborhood, not the entire neighborhood (which is Omega(n^2))
+
+            # should be L2?? I would think L1 projection <-- write a GH issue
+            diff = self.bot.target - self.bot.position
+            linf_dist = np.abs(diff).max()
+
+            intersection = self.bot.position + (self.neighborhood_radius / linf_dist) * diff
+            boundary = self.bot.boundary(self.neighborhood_radius)
+            distances = np.linalg.norm(boundary - intersection, axis=1, ord=2)
+
+            indices = DIRECTION, *(boundary[np.argmin(distances)] - self.offset)
+            state[indices] = 1
+
+        # flip each image, as images were modified upside-down
+        return np.flip(np.transpose(state, axes=(0, 2, 1)), axis=1)
+
+
+
 class Bot:  # TODO: rename!  Current candidate: "Bot"
     """
     A pixel-robot aware of only its own local state, not those of its peers.
@@ -128,6 +433,8 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         -target: target coordinate pair;
         -neighborhood: representation of the surrounding 9 pixels.
     """
+    StateRepresentation = LocalStateDQN
+
     def __init__(self, start, target, board, bot_id):
         """
         Construct an Bot object.
@@ -150,7 +457,7 @@ class Bot:  # TODO: rename!  Current candidate: "Bot"
         self.position = deepcopy(start)  # length two numpy array
         self.target = target  # length two numpy array
         self.board = board
-        self._local_state = LocalStateDQN(self)  # state representer class
+        self._local_state = Bot.StateRepresentation(self)  # state representer class
         self.bot_id = bot_id
         self.prev_position = self.position  # initialize; update with move()
 
@@ -329,294 +636,3 @@ class BotForDQN(Bot):
 
         self._local_state = LocalStateDQN(self)
 
-
-class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
-    """
-    A distributed state-representation comprised of Bots and some auxilliary,
-    global bookeeping.
-
-    Fields
-    ------
-    bots
-        a list of Bots;
-    obstacles
-        a list of pixels that are blocked-off and can't be used;
-    active_pixels
-        defaultdict: pixels -> Set[int]. These are pixels either occupied by
-        bots *or* those within bots' local neighborhoods;
-    prev_active_pixels
-        active_pixels as seen in the previous (board-clock) time-step;
-    occupied_pixels
-        defaultdict: pixels -> Set[int]. These are pixels occupied by bots.
-    prev_occupied_pixels
-        occupied_pixels as seen in the previous (board-clock) time-step;
-    queue
-        heap used to handle orders in which bots are to move;
-    clock
-        time-step counter.
-    """
-    def __init__(self, starts, targets, obstacles,
-                 bot_type=Bot, neighborhood_radius=2,
-                 **kwargs):
-        """
-        Construct a DistributedBoard object.
-        """
-        self._starts = starts
-        self._targets = targets
-        self.obstacles = obstacles  # Set of length-two numpy arrays
-        self.max_clock = kwargs.get('max_clock', None)
-        self.bot_type = bot_type
-        self.neighborhood_radius = neighborhood_radius
-
-    def _snapshot(self):
-        """
-        Stash current timestep info.
-
-        Allows recovery of local neighborhood of a given bot from the stashed
-        timestep.
-        """
-        self.prev_active_pixels = deepcopy(self.active_pixels)
-        self.prev_occupied_pixels = deepcopy(self.occupied_pixels)
-
-    def reset(self):
-        """
-        Resets the DistributedBoard, useful for reusing the same object for gym
-        environment.
-        """
-        # initialize all the bots to original start/target info
-        self.bots = []
-        for i, (start, target) in enumerate(zip(self._starts, self._targets)):
-            self.bots.append(self.bot_type(start, target, self, i))
-
-        self._bot_selector = bot_selector(self.bots)
-        self.selected_bot = self._bot_selector.next()
-
-        self.bot_actions = ['' for _ in self.bots]
-
-        # reset the clock
-        self.clock = 0
-
-        # init a dict: length-two numpy arrays -> sets of Bot ids
-        self.active_pixels = defaultdict(set)
-
-        # init a dict: tuple -> sets of Bot ids
-        self.occupied_pixels = defaultdict(set)
-
-        # values are bot ids
-        for bot in self.bots:
-            # activate pixels
-            for pixel in bot.neighborhood(self.neighborhood_radius):
-                # this is the intended use of active_pixels
-                self.active_pixels[tuple(pixel)].add(bot.bot_id)
-
-            # occupied pixels
-            self.occupied_pixels[tuple(bot.position)].add(bot.bot_id)
-            # TODO: why don't obstacles get added to the occupied_pixels?
-
-        self._snapshot()
-
-    def update_bots(self):
-        """
-        """
-        self.clock += 1
-
-        for bot_id, bot in enumerate(self.bots):
-            bot.move(self.bot_actions[bot_id])
-            self.bot_actions[bot_id] = ''
-
-    def isdone(self):
-        """
-        Returns whether all bots have found their target
-
-        Returns
-        -------
-        True iff every bot is at its target position
-        """
-        targets_reached = all(bot.attarget() for bot in self.bots)
-
-        clock_expired = False if self.max_clock is None else \
-            self.clock >= self.max_clock
-
-        return clock_expired or targets_reached
-
-
-def cart_to_imag(origin, position, radius):
-    """
-    Cartesian coordinates to image coordinates
-
-    Params
-    ------
-    origin: numpy ndarray
-    position: numpy ndarray
-    radius: int
-    """
-    diff = position - origin
-    imag_diff = np.array([-diff[1], diff[0]])
-
-    array_center = np.full(imag_diff.shape, radius)
-
-    return array_center + imag_diff
-
-
-class LocalState:
-    """
-    Local state information for one Bot.
-    """
-    shape = (22,)
-    def __init__(self, bot):
-        """
-        Each object is attached ("privately", no need for external use) to a
-        single bot.
-
-        Return
-        ------
-        bot: Bot
-        """
-        self.bot = bot
-        self.board = self.bot.board
-        self.neighborhood_radius = self.board.neighborhood_radius
-
-    @property
-    def state(self):
-        """
-        Encode current position, target position, and neighborhood.
-
-        Current features:
-            * for every tile in the neighborhood of the bot, return the
-              number of bots occupying the tile as well as whether an
-              obstacle is occupying the tile
-            * current location of the bot
-            * target location of the bot
-
-        TODO: make more interesting
-
-        Returns
-        -------
-        encoded_state: nump ndarray
-        """
-        n = 2 * self.neighborhood_radius + 1
-
-        neighborhood = np.zeros((n * n, 2))
-        square_nbd = neighborhood.view().reshape((n, n, 2))
-
-        BOTS, OBSTACLES = 0, 1
-
-        # for every pixel in the neighborhood
-        for index, pixel in enumerate(
-            self.bot.neighborhood(self.neighborhood_radius)):
-            # check if the pixel is occupied by an obstacle
-            neighborhood[index, OBSTACLES] = int(pixel in self.board.obstacles)
-
-            # for every (other) bot in the active_pixels set corresponding to
-            # the corresponding pixel
-            for bot_id in self.board.occupied_pixels[tuple(pixel)]:
-                # if the other bot is in the neighborhood, increment that
-                # position pixel
-                if self.bot.bot_id != bot_id:
-                    other = self.board.bots[bot_id]
-                    i, j = cart_to_imag(self.bot.position, other.position,
-                                        self.neighborhood_radius)
-                    square_nbd[i, j, BOTS] += 1
-
-        return np.r_[
-            self.bot.position, self.bot.target, neighborhood.reshape(-1)
-        ]
-
-
-class LocalStateDQN:
-    """
-    Local state representation for a single Bot for use in DQN.
-
-    Each state is a stack, or tensor, of 3 square images composed of pixels,
-    centered on the Bot. Each image in the stack represents a different
-    piece of information: the number of neighboring Bots occupying nearby
-    pixels, a map of nearby obstacles, direction to the Bot's target, etc.
-
-    In the case where side length is 3 pixels, an example state is:
-
-        [[[0, 0, 0],
-          [0, 1, 0],
-          [0, 0, 0]],
-
-         [[1, 0, 0],
-          [0, 0, 0],
-          [0, 0, 0]],
-
-         [[0, 0, 1],
-          [0, 0, 0],
-          [0, 0, 0]]]
-
-    where the first image gives the bot neighborhood, the second gives
-    the obstacle neighborhood, and the third has a 1 in the direction of the
-    Bot's target.
-    """
-
-    def __init__(self, bot):
-        self.bot = bot
-        self.board = self.bot.board
-        self.neighborhood_radius = self.board.neighborhood_radius
-        self.side_length = 2 * self.neighborhood_radius + 1
-
-        # cartesian coordinates of the bottom left corner of the neighborhood
-        self.offset = self.bot.position - np.full(self.bot.position.shape,
-                                                  self.neighborhood_radius)
-
-
-    def _is_row_in(self, arr, rows):
-        """
-        Check if a 1D numpy array is a row in a 2D numpy array.
-        """
-        return (arr == rows).all(axis=1).any()
-
-    @property
-    def state(self):
-        state = np.zeros((3, self.side_length, self.side_length))
-        # cartesian coordinates of the bottom left corner of the neighborhood
-        self.offset = self.bot.position - np.full(self.bot.position.shape,
-                                                  self.neighborhood_radius)
-
-
-        BOTS, OBSTACLES, DIRECTION = 0, 1, 2
-
-        neighborhood = self.bot.neighborhood(self.neighborhood_radius)
-
-        for pixel in neighborhood:
-            # add number of bots to each pixel in first image
-
-            # Wes: should the below line be occupied_pixels[tuple(pixel)],
-            # or is it okay as-is? Just double-checking... I do not want to
-            # pre-emptively influence your opinion. 
-            # 
-            # ANSWER (10/26/21): should be occupied_pixels
-            for bot_id in self.board.occupied_pixels[tuple(pixel)]:
-                bot = self.board.bots[bot_id]
-                if self.bot.bot_id != bot_id:
-                    indices = BOTS, *(bot.position - self.offset)
-                    state[indices] += 1
-
-            # add obstacles to second image
-            indices = OBSTACLES, *(pixel - self.offset)
-            state[indices] = (self.board.obstacles == pixel).all(axis=1).sum()
-
-        # add target direction to third image, projecting onto neighborhood
-        # if necessary
-        if self._is_row_in(self.bot.target, neighborhood):
-            indices = DIRECTION, *(self.bot.target - self.offset)
-            state[indices] = 1
-        else:
-            # TODO: only need to project on the *boundary* (which is Omega(n)) of
-            # the neighborhood, not the entire neighborhood (which is Omega(n^2))
-
-            # should be L2?? I would think L1 projection <-- write a GH issue
-            diff = self.bot.target - self.bot.position
-            linf_dist = np.abs(diff).max()
-
-            intersection = self.bot.position + (self.neighborhood_radius / linf_dist) * diff
-            boundary = self.bot.boundary(self.neighborhood_radius)
-            distances = np.linalg.norm(boundary - intersection, axis=1, ord=2)
-
-            indices = DIRECTION, *(boundary[np.argmin(distances)] - self.offset)
-            state[indices] = 1
-
-        # flip each image, as images were modified upside-down
-        return np.flip(np.transpose(state, axes=(0, 2, 1)), axis=1)
