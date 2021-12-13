@@ -11,5 +11,7 @@ setup(
         'gym',
         'cgshop2021_pyutils',
         'pyyaml',
+        'pettingzoo',
+        'stable_baselines3',
     ]
 )
