@@ -35,7 +35,7 @@ class gym_board_env(gym.Env):
         """
         assert self.action_space.contains(actions), "bad action"
 
-        for agent in self.pz_env.agent_iter(max_iter=self.n_agents)):
+        for agent in self.pz_env.agent_iter(max_iter=self.n_agents):
             agent_id = self.pz_env.agent_name_mapping[agent]
             self.pz_env.step(actions[agent_id])
 
