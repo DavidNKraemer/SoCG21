@@ -13,7 +13,7 @@ class gym_board_env(gym.Env):
         self.n_agents = len(self.raw_pz_env.possible_agents)
 
         self.action_space = gym.spaces.Box(
-            low=0, high=5, shape=(self.n_agents,), dtype=np.uint8
+            low=0, high=4, shape=(self.n_agents,), dtype=np.uint8
         )
 
         self.observation_space = self.raw_pz_env.observation_spaces

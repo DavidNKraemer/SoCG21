@@ -379,7 +379,8 @@ class LocalStateDQN:
 
     @property
     def state(self):
-        state = np.zeros((3, self.side_length, self.side_length))
+        state = np.zeros((3, self.side_length, self.side_length),
+                         dtype=np.uint8)
         # cartesian coordinates of the bottom left corner of the neighborhood
         self.offset = self.bot.position - np.full(
             self.bot.position.shape, self.neighborhood_radius
