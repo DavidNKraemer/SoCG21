@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+from itertools import product
 
 
 class gym_board_env(gym.Env):
@@ -12,9 +13,18 @@ class gym_board_env(gym.Env):
 
         self.n_agents = len(self.raw_pz_env.possible_agents)
 
-        self.action_space = gym.spaces.Box(
-            low=0, high=4, shape=(self.n_agents,), dtype=np.uint8
-        )
+        # self.action_space = gym.spaces.Box(
+        #     low=0, high=4, shape=(self.n_agents,), dtype=np.uint8
+        # )
+
+        self.int_to_action = {}
+        self.action_to_int = {}
+
+        for i, action in enumerate(product(range(5), repeat=self.n_agents)):
+            self.int_to_action[i] = action
+            self.action_to_int[action] = i 
+
+        self.action_space = gym.spaces.Discrete(5 ** (self.n_agents))
 
         self.observation_space = self.raw_pz_env.observation_spaces
 
@@ -23,7 +33,7 @@ class gym_board_env(gym.Env):
         # maybe return self.state ?? unclear
         return self.state
 
-    def step(self, actions):
+    def step(self, action):
         """
 
         Returns
@@ -35,9 +45,11 @@ class gym_board_env(gym.Env):
         """
         assert self.action_space.contains(actions), "bad action"
 
+        action_tuple = self.int_to_action[action]
+
         for agent in self.pz_env.agent_iter(max_iter=self.n_agents):
             agent_id = self.pz_env.agent_name_mapping[agent]
-            self.pz_env.step(actions[agent_id])
+            self.pz_env.step(action_tuple[agent_id])
 
         done = self.board.isdone()
         # centralized training: one agent
