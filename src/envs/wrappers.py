@@ -1,4 +1,5 @@
 import gym
+import numpy as np
 
 
 class gym_board_env(gym.Env):
@@ -6,9 +7,15 @@ class gym_board_env(gym.Env):
         self.pz_env = env
         self.raw_pz_env = self.pz_env.unwrapped
 
+
         self.board = self.raw_pz_env.board
 
-        self.action_space = self.raw_pz_env.action_spaces
+        self.n_agents = len(self.raw_pz_env.possible_agents)
+
+        self.action_space = gym.spaces.Box(
+            low=0, high=5, shape=(self.n_agents,), dtype=np.uint8
+        )
+
         self.observation_space = self.raw_pz_env.observation_spaces
 
     def reset(self):
@@ -26,10 +33,11 @@ class gym_board_env(gym.Env):
         done: bool
         info: dict
         """
-        assert self.action_space.contains(actions), "Try a dict"
+        assert self.action_space.contains(actions), "bad action"
 
-        for agent in self.pz_env.agent_iter(max_iter=len(self.pz_env.agents)):
-            self.pz_env.step(actions[agent])
+        for agent in self.pz_env.agent_iter(max_iter=self.n_agents)):
+            agent_id = self.pz_env.agent_name_mapping[agent]
+            self.pz_env.step(actions[agent_id])
 
         done = self.board.isdone()
         # centralized training: one agent

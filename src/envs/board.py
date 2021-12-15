@@ -50,7 +50,7 @@ class raw_env(AECEnv):
         self.metadata = {}
 
         self.board = DistributedBoard(
-            starts, targets, obstacles, **board_kwargs
+            starts, targets, obstacles, neighborhood_radius=32
         )
 
         # hard-code bot reward function
@@ -80,7 +80,8 @@ class raw_env(AECEnv):
         self.observation_spaces = gym.spaces.Dict(
             {
                 agent: gym.spaces.Box(
-                    low=-np.inf, high=np.inf, shape=self.board._obs_shape
+                    low=0, high=255, shape=self.board._obs_shape,
+                    dtype=np.uint8
                 )
                 for agent in agents
             }
