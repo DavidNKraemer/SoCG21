@@ -11,6 +11,7 @@ from src.utils import obstacles_hit, bots_hit, board_reward
 
 
 def env(*args, **kwargs):
+
     env = raw_env(*args, **kwargs)
 
     wrapper_classes = [
@@ -29,7 +30,10 @@ def env(*args, **kwargs):
 
 
 class raw_env(AECEnv):
-    def __init__(self, starts, targets, obstacles, **board_kwargs):
+    def __init__(self, starts, targets, obstacles,
+                 neighborhood_radius=20,
+                 max_timesteps=1000,
+                 **board_kwargs):
         """
         Params
         ------
@@ -47,10 +51,13 @@ class raw_env(AECEnv):
         starts.shape[0] == targets.shape[0]
         starts.shape[1] == targets.shape[1] == obstacles.shape[1] == 2
         """
+
         self.metadata = {}
 
         self.board = DistributedBoard(
-            starts, targets, obstacles, neighborhood_radius=32
+            starts, targets, obstacles,
+            neighborhood_radius=neighborhood_radius,
+            max_clock=max_timesteps,
         )
 
         # hard-code bot reward function
@@ -66,7 +73,7 @@ class raw_env(AECEnv):
         self.possible_agents = [f"bot_{agent_id}" for agent_id in range(n_bots)]
         agents = self.possible_agents
 
-        # dictionary mapping agent (labels) to ids.
+    # dictionary mapping agent (labels) to ids.
         self.agent_name_mapping = {
             agent: agent_id for agent_id, agent in enumerate(agents)
         }
@@ -89,6 +96,7 @@ class raw_env(AECEnv):
 
         self._agent_selector = agent_selector(agents)
 
+
     def reset(self):
         """
         Resets the underlying DistributedBoard and all of its bots, resets the
@@ -99,8 +107,10 @@ class raw_env(AECEnv):
 
         [Called for side-effects]
         """
+
         self.sim_stats = SimStats()
         self.board.reset()
+        self.timestep_count = 0
 
         self.rewards = {}
         self._cumulative_rewards = {}
@@ -124,6 +134,7 @@ class raw_env(AECEnv):
         # grab the first agent from the priority queue
         self._agent_selector.reinit(self.agents)
         self.agent_selection = self._agent_selector.next()
+
 
     def step(self, action):
         """
@@ -149,6 +160,7 @@ class raw_env(AECEnv):
 
         [Called for side-effects]
         """
+
         if self.dones[self.agent_selection]:
             action = None
             self._was_done_step(action)

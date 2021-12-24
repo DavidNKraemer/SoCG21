@@ -4,6 +4,7 @@
 **.pt
 data/dqn/*
 data/solutions/*
+**logs
 
 # virtual environment
 socg/

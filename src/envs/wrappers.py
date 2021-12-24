@@ -43,7 +43,7 @@ class gym_board_env(gym.Env):
         done: bool
         info: dict
         """
-        assert self.action_space.contains(actions), "bad action"
+        assert self.action_space.contains(action), "bad action"
 
         action_tuple = self.int_to_action[action]
 
