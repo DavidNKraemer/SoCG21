@@ -3,6 +3,7 @@
 **.pdf
 **.pt
 data/dqn/*
+data/*
 data/solutions/*
 **logs
 
