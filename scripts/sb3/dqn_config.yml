@@ -12,7 +12,7 @@ env_config: {
 training_config: {
   n_training_steps: 1000000,
   n_eval_episodes:    1,
-  eval_freq:          10000,
+  eval_freq:          100,
   deterministic_eval: True,
   render:             False,
 }
@@ -32,4 +32,5 @@ model_kwargs: {
   max_grad_norm:              10.0,
   seed:                       Null,
   verbose:                    2,
+  device:                     'auto',
 }
