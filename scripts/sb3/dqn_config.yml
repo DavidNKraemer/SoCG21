@@ -1,26 +1,22 @@
 env_config: {
-  starts:     [0, 0,
-               3, 0,
-               3, 3],
-  targets:    [3, 0,
-               0, 0,
-               0, 3],
+  starts:     [0, 0],
+  targets:    [3, 0],
   obstacles:  [1, 1],
   max_timesteps: 100,
 }
 
 training_config: {
-  n_training_steps: 1000000,
-  n_eval_episodes:    1,
-  eval_freq:          100,
+  n_training_steps: 1_000_000,
+  n_eval_episodes:    5,
+  eval_freq:          100_000,
   deterministic_eval: True,
   render:             False,
 }
 
 model_kwargs: {
-  learning_rate:              0.0001,
-  buffer_size:                1000000,
-  learning_starts:            50000,
+  learning_rate:              0.001,
+  buffer_size:                1_000_000,
+  learning_starts:            50_000,
   batch_size:                 32,
   tau:                        1.0,
   gamma:                      0.99,
@@ -32,5 +28,8 @@ model_kwargs: {
   max_grad_norm:              10.0,
   seed:                       Null,
   verbose:                    2,
-  device:                     'auto',
+  #device:                     'auto',
+  device:                    'cuda',
 }
+
+logdir: "test_logs"

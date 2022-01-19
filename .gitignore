@@ -5,10 +5,11 @@
 data/dqn/*
 data/*
 data/solutions/*
-**logs
+#**logs
 
-# virtual environment
+# virtual environments
 socg/
+dmarl/
 
 # Byte-compiled / optimized / DLL files
 **__pycache__/
