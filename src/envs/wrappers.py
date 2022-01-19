@@ -11,21 +11,54 @@ from random import choice
 
 
 class Viewer:
+    """
+    Custom Viewer class modeled after the eponymous Viewer defined in the file 
+    https://github.com/openai/gym/blob/master/gym/utils/pyglet_rendering.py.
+
+    Some of this implementation is directly lifted from the above source. Most
+    of it is implemented with modification. 
+
+    The biggest issue with the gym implementation is that objects are drawn to
+    the window manually by the program, instead of using more sophisticated
+    event queuing built-in with pyglet. This implementation attempts to resolve
+    this problem.
+
+    An inherent limitation with the env.render() model is that it prevents
+    pyglet's scheduler to have total control over screen refreshing. This can't
+    be avoided.
+    """
 
     def __init__(self, **params):
+        """
+        Params
+        ------
+        width: int (default=1200)
+            Window width, number of pixels
+        height: int (default=600)
+            Window height, number of pixels
+        n_blocks: int (default=40)
+            Number of blocks that can fit along the smaller window dimension
+        scale: float (default=1.1)
+            Scale factor for window magnification
+        key_speed: float (default=1/30)
+            Key-press event processing schedule
+        max_scale: float (default=2.)
+            Maximum scale factor for window magnification
+        min_scale: float (default=0.2)
+            Minimum scale factor for window magnification
+        """
         self.width         = params.get('width', 1200)
         self.height        = params.get('height', 600)
         self.n_blocks      = params.get('n_blocks', 40)
         self.scale         = params.get('scale', 1.1)
-        self.update_speed  = params.get('update_speed', 1/2)
         self.key_speed     = params.get('key_speed', 1/30)
-        self.current_scale = params.get('current_scale', 1.)
         self.max_scale     = params.get('max_scale', 2.)
         self.min_scale     = params.get('min_scale', 0.2)
         self.spec          = params.get('spec', None)
 
+        self.current_scale = 1.
         self.block_size = min(self.width, self.height) // self.n_blocks
-        self.translate_speed = 2 * self.update_speed * self.block_size
+        self.translate_speed = 1. * self.block_size
     
         self.display = Viewer.get_display(self.spec)
         self.window = Viewer.get_window(self.width, self.height, self.display)
@@ -39,6 +72,19 @@ class Viewer:
     
     @staticmethod
     def get_display(spec):
+        """
+        Returns the display device. Useful for constructing windows.
+
+        Params
+        ------
+        spec: str | None
+            specification string needed to pass to the pyglet Display
+            constructor (default, None)
+
+        Returns
+        -------
+        display: pyglet.canvas.Display
+        """
         if spec is None:
             return pyglet.canvas.get_display()
         elif isinstance(spec, str):
@@ -49,7 +95,24 @@ class Viewer:
             )
     
     @staticmethod
-    def get_window(width, height, display, **kwargs):
+    def get_window(width, height, display):
+        """
+        Returns a new window.
+
+        Params
+        ------
+        width: int
+            Window width, number of pixels
+        height: int
+            Window height, number of pixels
+        display: pyglet.canvas.Display
+            Display device
+
+        Returns
+        -------
+        window: pyglet.window.Window
+            Customized pyglet Window with key handler
+        """
         screen = display.get_screens()
         config = screen[0].get_best_config()
         context = config.create_context(None)
@@ -71,6 +134,12 @@ class Viewer:
 
     @staticmethod
     def _print_help():
+        """
+        Prints available GUI keyboard commands to terminal
+
+        Extensive use of Box Drawing characters makes it somewhat involved as
+        an implementation
+        """
         char_pad = 10
         info_pad = 40
     
@@ -91,65 +160,85 @@ class Viewer:
             '.': 'Zoom out',
             '/': 'Reset view',
         }
+
+        print('┌', end='')
+        print('─' * (char_pad + info_pad + 5), end='')
+        print('┐')
     
-        print('\u250c', end='')
-        print('\u2500' * (char_pad + info_pad + 5), end='')
-        print('\u2510')
-    
-        print('\u2502', end='')
+        print('│', end='')
         print('Viewer Instructions'.center(char_pad + info_pad + 5), end='')
-        print('\u2502')
+        print('│')
     
-        print('\u251c', end='')
-        print('\u2500' * char_pad, end='')
-        print('\u252c', end='')
-        print('\u2500' * (info_pad + 4), end='')
-        print('\u2524')
+        print('├', end='')
+        print('─' * char_pad, end='')
+        print('┬', end='')
+        print('─' * (info_pad + 4), end='')
+        print('┤')
     
         for char, info in instructions.items():
-            print('\u2502', end='')
+            print('│', end='')
             print(char.center(char_pad), end='')
-            print('\u2502\t', end='')
+            print('│' + '\t', end='')
             print(info.ljust(info_pad), end='')
-            print('\u2502')
+            print('│')
     
-        print('\u2514', end='')
-        print('\u2500' * char_pad, end='')
-        print('\u2534', end='')
-        print('\u2500' * (info_pad + 4), end='')
-        print('\u2518')
+        print('└', end='')
+        print('─' * char_pad, end='')
+        print('┴', end='')
+        print('─' * (info_pad + 4), end='')
+        print('┘')
 
     def _process_key(self, dt):
+        """
+        Process keyboard presses.
+
+        Pressing and holding will perform the same operation repeatedly.
+
+        Params
+        ------
+        dt: float
+            Time step
+        """
         speed = self.translate_speed / self.current_scale
-    
         key_handler = self.window.key_handler
-        # translation keys
-        if key_handler[key.UP]:
-            gl.glTranslatef(0, -speed, 0)
-        if key_handler[key.DOWN]:
-            gl.glTranslatef(0, speed, 0)
-        if key_handler[key.LEFT]:
-            gl.glTranslatef(speed, 0, 0)
-        if key_handler[key.RIGHT]:
-            gl.glTranslatef(-speed, 0, 0)
+
+
+        directions = {
+            key.UP: (0, -speed, 0),
+            key.DOWN: (0, speed, 0),
+            key.LEFT: (speed, 0, 0),
+            key.RIGHT: (-speed, 0, 0)
+        }
+
+        magnifications = {
+            key.PERIOD: (
+                1/self.scale, 1./self.current_scale, 1./self.min_scale
+            ),
+            key.COMMA: (
+                self.scale, self.current_scale, self.max_scale
+            )
+        }
+
+        # translation keys: process directional moves
+        for direction, shift in directions.items():
+            if key_handler[direction]:
+                gl.glTranslatef(*shift)
+
+        # zooming keys: process magnification
+        for mag, (zoom, current, bound) in magnifications.items():
+            if key_handler[mag] and current < bound:
+                gl.glScalef(zoom, zoom, 1.)
+                self.current_scale *= zoom
+
+        # print help
         if key_handler[key.H]:
             Viewer._print_help()
     
+        # reset zoom+translation
         if key_handler[key.SLASH]:
             gl.glPopMatrix()
             gl.glPushMatrix()
             self.current_scale = 1.
-    
-        # zooming keys
-        if key_handler[key.PERIOD]:  # out
-            if self.current_scale > self.min_scale:
-                gl.glScalef(1/self.scale, 1/self.scale, 1.)
-                self.current_scale /= self.scale
-    
-        if key_handler[key.COMMA]:  # out
-            if self.current_scale < self.max_scale:
-                gl.glScalef(self.scale, self.scale, 1.)
-                self.current_scale *= self.scale
 
     def close(self):
         self.window.close()
