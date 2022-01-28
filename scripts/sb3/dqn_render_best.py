@@ -1,20 +1,32 @@
-import numpy as np
 import argparse
-import yaml
+import numpy as np
 import os
 import stable_baselines3 as sb
+import time
+import yaml
+
 from copy import deepcopy
+from src.envs import board
 from stable_baselines3.common.callbacks import EvalCallback
 
-from src.envs import board
+parser = argparse.ArgumentParser("python dqn_render_best.py")
+
+parser.add_argument(
+    "--logdir", type=str, default=None, required=True,
+    help="Directory to read trial data from"
+)
+parser.add_argument(
+    "--config", type=str, default=None, required=True,
+    help="Filename of configuration file"
+)
+
+args = parser.parse_args()
 
 
 if __name__ == "__main__":
 
-    save_dir = 'test_logs'
-    config = 'dqn_config.yml'
 
-    with open(config, "r") as f:
+    with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
 
@@ -32,7 +44,8 @@ if __name__ == "__main__":
         max_timesteps=max_timesteps
     ).unwrapped.to_gym()
 
-    model = sb.DQN.load(f"{save_dir}/best_model.zip")
+    model_file = os.path.join(args.logdir, "best_model.zip")
+    model = sb.DQN.load(model_file)
 
     # Enjoy trained agent
     state = env.reset()
@@ -41,7 +54,8 @@ if __name__ == "__main__":
         action, _states = model.predict(state)
         state, reward, done, info = env.step(action)
         env.render()
+        time.sleep(0.5)
 
-    input('Press anything to close')
+    input('Press [ENTER] to close')
     env.close()
 
