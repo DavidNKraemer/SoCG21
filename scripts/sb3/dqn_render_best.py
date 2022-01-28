@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     env = board.env(
         *(config['env_config'][g] for g in groups),
-        max_timesteps=max_timesteps
+        print_moves=True
     ).unwrapped.to_gym()
 
     model_file = os.path.join(args.logdir, "best_model.zip")
@@ -52,9 +52,8 @@ if __name__ == "__main__":
     done = False
     while not done:
         action, _states = model.predict(state)
-        state, reward, done, info = env.step(action)
+        state, reward, done, info = env.step(int(action))
         env.render()
-        time.sleep(0.5)
 
     input('Press [ENTER] to close')
     env.close()
