@@ -12,10 +12,12 @@ from src.envs import board
 parser = argparse.ArgumentParser("python dqn_train.py")
 
 parser.add_argument(
-    "--logdir", type=str, default=None, help="Directory to store trial data in"
+    "--logdir", type=str, default=None, required=True,
+    help="Directory to store trial data in"
 )
 parser.add_argument(
-    "--config", type=str, default=None, help="Filename of configuration file"
+    "--config", type=str, default=None, required=True,
+    help="Filename of configuration file"
 )
 
 args = parser.parse_args()
@@ -23,13 +25,10 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
 
-    assert args.config is not None, "Specify a valid configuration file."
-
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
     logdir = args.logdir if args.logdir is not None else config["logdir"]
-    assert isinstance(logdir, str), "Specify a valid directory"
     os.makedirs(logdir, exist_ok=True)
 
     # set up environment
