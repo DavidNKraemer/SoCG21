@@ -58,6 +58,7 @@ class raw_env(AECEnv):
             starts, targets, obstacles,
             neighborhood_radius=neighborhood_radius,
             max_clock=max_timesteps,
+            **board_kwargs,
         )
 
         # hard-code bot reward function

@@ -155,6 +155,7 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         self._targets = targets
         self.obstacles = obstacles  # Set of length-two numpy arrays
         self.max_clock = kwargs.get("max_clock", None)
+        self.print_moves = kwargs.get("print_moves", False)  # prints each movement
         self.neighborhood_radius = neighborhood_radius
 
         self._obs_shape = Bot.StateRepresentation.shape(neighborhood_radius)
@@ -212,7 +213,10 @@ class DistributedBoard:  # TODO: why isn't this a subclass of gym.Environment?
         self.clock += 1
 
         for bot_id, bot in enumerate(self.bots):
-            bot.move(self.bot_actions[bot_id])
+            action = self.bot_actions[bot_id]
+            if self.print_moves and action != '':
+                print(f"bot{bot_id}: {action}")
+            bot.move(action)
             self.bot_actions[bot_id] = ""
 
     def isdone(self):
